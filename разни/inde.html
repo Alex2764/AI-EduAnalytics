@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система за управление на ученици и тестове</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background-color: #34495e;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 15px;
+            background-color: #34495e;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .nav-tab:hover {
+            background-color: #4a6741;
+        }
+
+        .nav-tab.active {
+            background-color: #27ae60;
+        }
+
+        .content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        input[type="text"], input[type="number"], input[type="date"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #27ae60;
+        }
+
+        .btn {
+            background-color: #27ae60;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #229954;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+
+        .table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .bulk-section {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .info-section {
+            display: none;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e8f5e8;
+            border-radius: 5px;
+        }
+
+        .single-form {
+            display: none;
+            margin-bottom: 20px;
+            padding: 20px;
+            background-color: #f0f8ff;
+            border-radius: 10px;
+        }
+
+        .student-input-row {
+            display: grid;
+            grid-template-columns: 50px 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .student-number {
+            text-align: center;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .student-input-row input {
+            margin-bottom: 0;
+        }
+
+        #studentInputsContainer {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #ffffff;
+        }
+
+        /* Модално прозорче за резултати */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 95%;
+            max-width: 1000px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #34495e;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #e74c3c;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .results-table th, .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .results-table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+
+        .results-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .result-input {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            text-align: center;
+        }
+
+        .result-input:focus {
+            outline: none;
+            border-color: #27ae60;
+        }
+
+        .grade-display {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 3px;
+            text-align: center;
+            min-width: 40px;
+            display: inline-block;
+        }
+
+        .grade-excellent { background-color: #d4edda; color: #155724; }
+        .grade-very-good { background-color: #d1ecf1; color: #0c5460; }
+        .grade-good { background-color: #fff3cd; color: #856404; }
+        .grade-satisfactory { background-color: #f8d7da; color: #721c24; }
+        .grade-poor { background-color: #f5c6cb; color: #721c24; }
+
+        .bulk-actions {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .bulk-actions input {
+            width: 100px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .nav-tabs {
+                flex-direction: column;
+            }
+
+            .student-input-row {
+                grid-template-columns: 40px 1fr;
+                gap: 5px;
+            }
+
+            .student-input-row input {
+                grid-column: span 1;
+                margin-bottom: 5px;
+            }
+
+            .modal-content {
+                margin: 1% auto;
+                width: 98%;
+                padding: 10px;
+            }
+
+            .results-table {
+                font-size: 12px;
+            }
+
+            .results-table th, .results-table td {
+                padding: 8px 4px;
+            }
+
+            .result-input {
+                width: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Система за управление на ученици и тестове</h1>
+            <p>Електронен дневник за анализ на успеваемостта</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showSection('classes')">🏫 Класове</button>
+            <button class="nav-tab" onclick="showSection('tests')">📝 Тестове</button>
+            <button class="nav-tab" onclick="showSection('analytics')">📊 Анализи</button>
+        </div>
+
+        <div class="content">
+            <!-- Секция Класове -->
+            <div id="classes" class="section active">
+                <h2>Управление на класове</h2>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="newClassName">Име на клас:</label>
+                        <select id="newClassName">
+                            <option value="">Изберете клас</option>
+                            <option value="5А">5А</option>
+                            <option value="5Б">5Б</option>
+                            <option value="6А">6А</option>
+                            <option value="6Б">6Б</option>
+                            <option value="7А">7А</option>
+                            <option value="7Б">7Б</option>
+                            <option value="8А">8А</option>
+                            <option value="8Б">8Б</option>
+                            <option value="9А">9А</option>
+                            <option value="9Б">9Б</option>
+                            <option value="10А">10А</option>
+                            <option value="10Б">10Б</option>
+                            <option value="11А">11А</option>
+                            <option value="11Б">11Б</option>
+                            <option value="12А">12А</option>
+                            <option value="12Б">12Б</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="schoolYear">Учебна година:</label>
+                        <input type="text" id="schoolYear" placeholder="2024/2025" value="2024/2025">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn" onclick="createClass()">➕ Създай клас</button>
+                    </div>
+                </div>
+
+                <table class="table" id="classesTable">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Клас</th>
+                            <th>Учебна година</th>
+                            <th>Брой ученици</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="classesBody">
+                    </tbody>
+                </table>
+
+                <!-- Секция за групово добавяне на ученици -->
+                <div id="bulkStudentSection" class="bulk-section">
+                    <h3 id="bulkStudentTitle">Добавяне на ученици</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">Въведете данните на учениците. Можете да добавяте нови редове с бутона "Добави ред".</p>
+                    
+                    <div class="form-row" style="margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label>Брой ученици:</label>
+                            <input type="number" id="studentCount" min="1" max="35" value="25" onchange="generateStudentInputs()">
+                        </div>
+                        <div class="form-group">
+                            <button type="button" class="btn" onclick="generateStudentInputs()">🔄 Генерирай полета</button>
+                        </div>
+                    </div>
+
+                    <div id="studentInputsContainer">
+                        <!-- Тук ще се генерират input полетата -->
+                    </div>
+
+                    <div class="form-row" style="margin-top: 20px;">
+                        <div class="form-group">
+                            <button class="btn" onclick="saveBulkStudents()">💾 Запази учениците</button>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-secondary" onclick="cancelBulkStudents()">❌ Откажи</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Секция Тестове -->
+            <div id="tests" class="section">
+                <h2>Управление на тестове</h2>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="testName">Име на тест:</label>
+                        <input type="text" id="testName" placeholder="Въведете име на теста">
+                    </div>
+                    <div class="form-group">
+                        <label for="testClass">Клас:</label>
+                        <select id="testClass">
+                            <option value="">Изберете клас</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="testType">Тип тест:</label>
+                        <select id="testType">
+                            <option value="">Изберете тип</option>
+                            <option value="Нормален тест">Нормален тест</option>
+                            <option value="Класна работа">Класна работа</option>
+                            <option value="Входно ниво">Входно ниво</option>
+                            <option value="Изходно ниво">Изходно ниво</option>
+                            <option value="Междинно ниво">Междинно ниво</option>
+                            <option value="Текуща оценка">Текуща оценка</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="testDate">Дата:</label>
+                        <input type="date" id="testDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxPoints">Максимални точки:</label>
+                        <input type="number" id="maxPoints" placeholder="Макс. точки" min="1">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button class="btn" onclick="createTest()">🆕 Създай тест</button>
+                </div>
+
+                <table class="table" id="testsTable">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Име на тест</th>
+                            <th>Клас</th>
+                            <th>Тип</th>
+                            <th>Дата</th>
+                            <th>Макс. точки</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="testsBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Секция Анализи -->
+            <div id="analytics" class="section">
+                <h2>Анализи и статистики</h2>
+
+                <div style="background-color: #f8f9fa; padding: 40px; border-radius: 10px; text-align: center; margin-top: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;">Ще има подобрения с AI</h3>
+                    <p style="font-size: 18px; color: #7f8c8d; margin-bottom: 10px;">Очаквайте скоро</p>
+                    <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #27ae60;">
+                        <p style="margin: 0; color: #155724; font-weight: bold;">🚀 В разработка:</p>
+                        <ul style="text-align: left; margin: 10px 0; color: #155724;">
+                            <li>Прикачване на тестовете и анализ от AI</li>
+                            <li>Даване на препоръки за пропуските от учениците</li>
+                            <li>Мотивация</li>
+                            <li>Интелигентен анализ на успеваемостта</li>
+                            <li>AI препоръки за подобряване на резултатите</li>
+                            <li>Автоматично генериране на отчети</li>
+                            <li>Предсказване на рискове в обучението</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="alerts"></div>
+
+    <!-- Модално прозорче за управление на ученици -->
+    <div id="studentsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="studentsModalTitle">Управление на ученици</h3>
+                <span class="close" onclick="closeStudentsModal()">&times;</span>
+            </div>
+            
+            <!-- Форма за добавяне/редактиране на ученик -->
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h4 id="studentFormTitle">Добави нов ученик</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modalFirstName">Име:</label>
+                        <input type="text" id="modalFirstName" placeholder="Въведете име">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalMiddleName">Презире:</label>
+                        <input type="text" id="modalMiddleName" placeholder="Въведете презире">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalLastName">Фамилия:</label>
+                        <input type="text" id="modalLastName" placeholder="Въведете фамилия">
+                    </div>
+                    <div class="form-group">
+                        <label for="modalStudentNumber">Номер в клас:</label>
+                        <input type="number" id="modalStudentNumber" placeholder="Номер" min="1">
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn" onclick="saveStudent()" id="saveStudentBtn">➕ Добави ученик</button>
+                    <button class="btn btn-secondary" onclick="cancelStudentEdit()" id="cancelStudentBtn" style="display: none;">❌ Откажи</button>
+                </div>
+            </div>
+
+            <!-- Информация за класа -->
+            <div id="studentsModalInfo" style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <h3 id="studentsModalClassInfo">Клас: </h3>
+                <p id="studentsModalStats">Общо ученици: 0</p>
+            </div>
+
+            <!-- Таблица с учениците -->
+            <table class="table" id="studentsModalTable">
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Име</th>
+                        <th>Презире</th>
+                        <th>Фамилия</th>
+                        <th>Номер в клас</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="studentsModalBody">
+                </tbody>
+            </table>
+
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn btn-secondary" onclick="closeStudentsModal()">❌ Затвори</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модално прозорче за анализ на тест -->
+    <div id="testAnalyticsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="testAnalyticsTitle">Анализ на тест</h3>
+                <span class="close" onclick="closeTestAnalyticsModal()">&times;</span>
+            </div>
+            
+            <div id="testAnalyticsContent">
+                <!-- Тук ще се показва анализът на теста -->
+            </div>
+
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn btn-secondary" onclick="closeTestAnalyticsModal()">❌ Затвори</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модално прозорче за резултати -->
+    <div id="resultsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Въвеждане на резултати</h3>
+                <span class="close" onclick="closeResultsModal()">&times;</span>
+            </div>
+            
+            <div id="modalTestInfo">
+                <!-- Информация за теста -->
+            </div>
+
+            <div class="bulk-actions">
+                <label>Бързо попълване:</label>
+                <input type="number" id="bulkPoints" placeholder="Точки" min="0" max="100">
+                <button class="btn" onclick="fillBulkPoints()">Попълни всички</button>
+                <button class="btn btn-secondary" onclick="clearAllResults()">Изчисти всички</button>
+            </div>
+
+            <table class="results-table" id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Име</th>
+                        <th>Презире</th>
+                        <th>Фамилия</th>
+                        <th>Точки</th>
+                        <th>Оценка</th>
+                        <th>Процент</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <!-- Тук ще се генерират редовете за учениците -->
+                </tbody>
+            </table>
+
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn" onclick="saveResults()">💾 Запази резултатите</button>
+                <button class="btn btn-secondary" onclick="closeResultsModal()">❌ Откажи</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобални променливи
+        let students = JSON.parse(localStorage.getItem('students') || '[]');
+        let tests = JSON.parse(localStorage.getItem('tests') || '[]');
+        let results = JSON.parse(localStorage.getItem('results') || '[]');
+        let classes = JSON.parse(localStorage.getItem('classes') || '[]');
+        let currentEditingClass = null;
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Приложението се зарежда...');
+            displayClasses();
+            updateClassFilters();
+            displayTests();
+            
+            // Задай днешната дата по подразбиране
+            const testDateInput = document.getElementById('testDate');
+            if (testDateInput) {
+                testDateInput.valueAsDate = new Date();
+            }
+            console.log('Приложението е заредено успешно!');
+        });
+
+        // Функции за навигация
+        function showSection(sectionId) {
+            // Скрий всички секции
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            
+            // Покажи избраната секция
+            document.getElementById(sectionId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Функции за класове
+        function createClass() {
+            const className = document.getElementById('newClassName').value;
+            const schoolYear = document.getElementById('schoolYear').value.trim();
+
+            if (!className || !schoolYear) {
+                showAlert('Моля попълнете всички полета!', 'error');
+                return;
+            }
+
+            // Провери дали класът вече съществува
+            if (classes.some(c => c.name === className && c.schoolYear === schoolYear)) {
+                showAlert('Този клас вече съществува за тази учебна година!', 'error');
+                return;
+            }
+
+            const classObj = {
+                id: Date.now(),
+                name: className,
+                schoolYear: schoolYear,
+                createdDate: new Date().toISOString()
+            };
+
+            classes.push(classObj);
+            localStorage.setItem('classes', JSON.stringify(classes));
+
+            // Изчисти формата
+            document.getElementById('newClassName').value = '';
+            document.getElementById('schoolYear').value = '2024/2025';
+
+            displayClasses();
+            updateClassFilters();
+            showAlert('Класът е създаден успешно!', 'success');
+        }
+
+        function displayClasses() {
+            const tbody = document.getElementById('classesBody');
+            if (!tbody) return;
+            
+            // Сортирай по име на класа
+            const sortedClasses = [...classes].sort((a, b) => a.name.localeCompare(b.name));
+
+            tbody.innerHTML = sortedClasses.map((classObj, index) => {
+                const studentCount = students.filter(s => s.class === classObj.name).length;
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${classObj.name}</strong></td>
+                        <td>${classObj.schoolYear}</td>
+                        <td>${studentCount}</td>
+                        <td>
+                            <button class="btn" onclick="editClassStudents('${classObj.name}')">👥 Управление на ученици</button>
+                            <button class="btn btn-danger" onclick="deleteClass(${classObj.id})">🗑️ Изтрий</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function deleteClass(classId) {
+            const classObj = classes.find(c => c.id === classId);
+            if (!classObj) return;
+
+            const studentCount = students.filter(s => s.class === classObj.name).length;
+            
+            if (studentCount > 0) {
+                if (!confirm(`В класа ${classObj.name} има ${studentCount} ученици. Сигурни ли сте, че искате да изтриете класа? Това ще изтрие и всички ученици и техните резултати!`)) {
+                    return;
+                }
+                
+                // Изтрий учениците и техните резултати
+                const studentIds = students.filter(s => s.class === classObj.name).map(s => s.id);
+                students = students.filter(s => s.class !== classObj.name);
+                results = results.filter(r => !studentIds.includes(r.studentId));
+                
+                // Изтрий тестовете за този клас
+                const testIds = tests.filter(t => t.class === classObj.name).map(t => t.id);
+                tests = tests.filter(t => t.class !== classObj.name);
+                results = results.filter(r => !testIds.includes(r.testId));
+                
+                localStorage.setItem('students', JSON.stringify(students));
+                localStorage.setItem('tests', JSON.stringify(tests));
+                localStorage.setItem('results', JSON.stringify(results));
+            } else {
+                if (!confirm(`Сигурни ли сте, че искате да изтриете класа ${classObj.name}?`)) {
+                    return;
+                }
+            }
+
+            classes = classes.filter(c => c.id !== classId);
+            localStorage.setItem('classes', JSON.stringify(classes));
+
+            displayClasses();
+            updateClassFilters();
+            showAlert('Класът е изтрит успешно!', 'success');
+        }
+
+        function editClassStudents(className) {
+            currentEditingClass = className;
+            
+            // Задай заглавието на модалното прозорче
+            document.getElementById('studentsModalTitle').textContent = `Управление на ученици - Клас ${className}`;
+            document.getElementById('studentsModalClassInfo').textContent = `Клас: ${className}`;
+            
+            // Обнови таблицата с учениците
+            displayStudentsModal(className);
+            
+            // Покажи модалното прозорче
+            document.getElementById('studentsModal').style.display = 'block';
+        }
+
+        function generateStudentInputs() {
+            const studentCount = parseInt(document.getElementById('studentCount').value) || 25;
+            const container = document.getElementById('studentInputsContainer');
+            
+            if (!container) return;
+
+            // Запази съществуващите данни
+            const existingData = {};
+            for (let i = 1; i <= 50; i++) { // Проверки до 50 за всеки случай
+                const firstName = document.getElementById(`firstName_${i}`);
+                const middleName = document.getElementById(`middleName_${i}`);
+                const lastName = document.getElementById(`lastName_${i}`);
+                
+                if (firstName && middleName && lastName) {
+                    existingData[i] = {
+                        firstName: firstName.value,
+                        middleName: middleName.value,
+                        lastName: lastName.value
+                    };
+                }
+            }
+
+            // Генерирай новите input полета
+            let html = '';
+            for (let i = 1; i <= studentCount; i++) {
+                const existing = existingData[i] || { firstName: '', middleName: '', lastName: '' };
+                html += `
+                    <div class="student-input-row">
+                        <div class="student-number">${i}.</div>
+                        <input type="text" id="firstName_${i}" placeholder="Име" value="${existing.firstName}">
+                        <input type="text" id="middleName_${i}" placeholder="Презире" value="${existing.middleName}">
+                        <input type="text" id="lastName_${i}" placeholder="Фамилия" value="${existing.lastName}">
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function saveBulkStudents() {
+            if (!currentEditingClass) return;
+
+            const studentCount = parseInt(document.getElementById('studentCount').value) || 25;
+            
+            // Изтрий съществуващите ученици от този клас
+            students = students.filter(s => s.class !== currentEditingClass);
+
+            const newStudents = [];
+            const errors = [];
+
+            for (let i = 1; i <= studentCount; i++) {
+                const firstNameInput = document.getElementById(`firstName_${i}`);
+                const middleNameInput = document.getElementById(`middleName_${i}`);
+                const lastNameInput = document.getElementById(`lastName_${i}`);
+                
+                if (!firstNameInput || !middleNameInput || !lastNameInput) continue;
+
+                const firstName = firstNameInput.value.trim();
+                const middleName = middleNameInput.value.trim();
+                const lastName = lastNameInput.value.trim();
+
+                // Ако всичките полета са празни, прескачай
+                if (!firstName && !middleName && !lastName) continue;
+
+                // Ако някое поле е празно, а останалите не са
+                if (!firstName || !middleName || !lastName) {
+                    errors.push(`Ред ${i}: Моля попълнете всички полета или оставете реда празен`);
+                    continue;
+                }
+
+                const student = {
+                    id: Date.now() + i,
+                    firstName,
+                    middleName,
+                    lastName,
+                    class: currentEditingClass,
+                    number: i
+                };
+
+                newStudents.push(student);
+            }
+
+            if (errors.length > 0) {
+                showAlert(`Грешки при обработката:\n${errors.join('\n')}`, 'error');
+                return;
+            }
+
+            if (newStudents.length === 0) {
+                showAlert('Моля въведете поне един ученик!', 'error');
+                return;
+            }
+
+            students.push(...newStudents);
+            localStorage.setItem('students', JSON.stringify(students));
+
+            document.getElementById('bulkStudentSection').style.display = 'none';
+            currentEditingClass = null;
+            
+            displayClasses();
+            updateClassFilters();
+            
+            showAlert(`Успешно добавени ${newStudents.length} ученици в клас ${currentEditingClass}!`, 'success');
+        }
+
+        function cancelBulkStudents() {
+            document.getElementById('bulkStudentSection').style.display = 'none';
+            currentEditingClass = null;
+            
+            // Изчисти container-а
+            const container = document.getElementById('studentInputsContainer');
+            if (container) {
+                container.innerHTML = '';
+            }
+        }
+
+        // Функции за ученици
+
+
+        // Глобална променлива за редактиране на ученик
+        let currentEditingStudent = null;
+
+        function displayStudentsModal(className) {
+            const tbody = document.getElementById('studentsModalBody');
+            const studentsModalStats = document.getElementById('studentsModalStats');
+            
+            if (!tbody || !studentsModalStats) return;
+            
+            const classStudents = students.filter(s => s.class === className).sort((a, b) => a.number - b.number);
+            
+            // Обнови статистиките
+            studentsModalStats.textContent = `Общо ученици: ${classStudents.length}`;
+            
+            if (classStudents.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Няма ученици в този клас</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = classStudents.map((student, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${student.firstName}</td>
+                    <td>${student.middleName}</td>
+                    <td>${student.lastName}</td>
+                    <td>${student.number}</td>
+                    <td>
+                        <button class="btn" onclick="editStudent(${student.id})" style="margin-right: 5px;">✏️ Редактирай</button>
+                        <button class="btn btn-danger" onclick="deleteStudent(${student.id})">🗑️ Изтрий</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function closeStudentsModal() {
+            document.getElementById('studentsModal').style.display = 'none';
+            currentEditingClass = null;
+            currentEditingStudent = null;
+            clearStudentForm();
+        }
+
+        function clearStudentForm() {
+            document.getElementById('modalFirstName').value = '';
+            document.getElementById('modalMiddleName').value = '';
+            document.getElementById('modalLastName').value = '';
+            document.getElementById('modalStudentNumber').value = '';
+            document.getElementById('studentFormTitle').textContent = 'Добави нов ученик';
+            document.getElementById('saveStudentBtn').textContent = '➕ Добави ученик';
+            document.getElementById('cancelStudentBtn').style.display = 'none';
+            currentEditingStudent = null;
+        }
+
+        function editStudent(studentId) {
+            const student = students.find(s => s.id === studentId);
+            if (!student) return;
+
+            currentEditingStudent = student;
+            
+            // Попълни формата с данните на ученика
+            document.getElementById('modalFirstName').value = student.firstName;
+            document.getElementById('modalMiddleName').value = student.middleName;
+            document.getElementById('modalLastName').value = student.lastName;
+            document.getElementById('modalStudentNumber').value = student.number;
+            
+            // Промени заглавието и бутоните
+            document.getElementById('studentFormTitle').textContent = 'Редактирай ученик';
+            document.getElementById('saveStudentBtn').textContent = '💾 Запази промените';
+            document.getElementById('cancelStudentBtn').style.display = 'inline-block';
+        }
+
+        function cancelStudentEdit() {
+            clearStudentForm();
+        }
+
+        function saveStudent() {
+            if (!currentEditingClass) {
+                showAlert('Моля изберете клас!', 'error');
+                return;
+            }
+
+            const firstName = document.getElementById('modalFirstName').value.trim();
+            const middleName = document.getElementById('modalMiddleName').value.trim();
+            const lastName = document.getElementById('modalLastName').value.trim();
+            const studentNumber = parseInt(document.getElementById('modalStudentNumber').value);
+
+            if (!firstName || !middleName || !lastName || !studentNumber) {
+                showAlert('Моля попълнете всички полета!', 'error');
+                return;
+            }
+
+            if (currentEditingStudent) {
+                // Редактиране на съществуващ ученик
+                const studentIndex = students.findIndex(s => s.id === currentEditingStudent.id);
+                if (studentIndex !== -1) {
+                    students[studentIndex].firstName = firstName;
+                    students[studentIndex].middleName = middleName;
+                    students[studentIndex].lastName = lastName;
+                    students[studentIndex].number = studentNumber;
+                }
+                showAlert('Ученикът е редактиран успешно!', 'success');
+            } else {
+                // Добавяне на нов ученик
+                // Провери дали номерът вече съществува в класа
+                const existingStudent = students.find(s => s.class === currentEditingClass && s.number === studentNumber);
+                if (existingStudent) {
+                    showAlert('Ученик с този номер вече съществува в класа!', 'error');
+                    return;
+                }
+
+                const student = {
+                    id: Date.now(),
+                    firstName,
+                    middleName,
+                    lastName,
+                    class: currentEditingClass,
+                    number: studentNumber
+                };
+
+                students.push(student);
+                showAlert('Ученикът е добавен успешно!', 'success');
+            }
+
+            localStorage.setItem('students', JSON.stringify(students));
+            
+            // Обнови таблиците
+            displayStudentsModal(currentEditingClass);
+            displayClasses();
+            clearStudentForm();
+        }
+
+        function deleteStudent(id) {
+            if (confirm('Сигурни ли сте, че искате да изтриете този ученик?')) {
+                const student = students.find(s => s.id === id);
+                students = students.filter(s => s.id !== id);
+                // Изтрий и свързаните резултати
+                results = results.filter(r => r.studentId !== id);
+                localStorage.setItem('students', JSON.stringify(students));
+                localStorage.setItem('results', JSON.stringify(results));
+                
+                // Обнови таблиците
+                displayClasses();
+                if (currentEditingClass && student) {
+                    displayStudentsModal(currentEditingClass);
+                }
+                updateClassFilters();
+                showAlert('Ученикът е изтрит успешно!', 'success');
+            }
+        }
+
+        // Функции за тестове
+        function createTest() {
+            const testName = document.getElementById('testName').value.trim();
+            const testClass = document.getElementById('testClass').value;
+            const testType = document.getElementById('testType').value;
+            const testDate = document.getElementById('testDate').value;
+            const maxPoints = parseInt(document.getElementById('maxPoints').value);
+
+            if (!testName || !testClass || !testType || !testDate || !maxPoints) {
+                showAlert('Моля попълнете всички полета!', 'error');
+                return;
+            }
+
+            const test = {
+                id: Date.now(),
+                name: testName,
+                class: testClass,
+                type: testType,
+                date: testDate,
+                maxPoints: maxPoints
+            };
+
+            tests.push(test);
+            localStorage.setItem('tests', JSON.stringify(tests));
+
+            // Изчисти формата
+            document.getElementById('testName').value = '';
+            document.getElementById('testClass').value = '';
+            document.getElementById('testType').value = '';
+            document.getElementById('testDate').valueAsDate = new Date();
+            document.getElementById('maxPoints').value = '';
+
+            displayTests();
+            showAlert('Тестът е създаден успешно!', 'success');
+        }
+
+        function displayTests() {
+            const tbody = document.getElementById('testsBody');
+            if (!tbody) return;
+            
+            // Сортирай по дата (най-новите първо)
+            const sortedTests = [...tests].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            tbody.innerHTML = sortedTests.map((test, index) => {
+                // Намери резултатите за този тест
+                const testResults = results.filter(r => r.testId === test.id);
+                const studentsInClass = students.filter(s => s.class === test.class).length;
+                const resultsCount = testResults.length;
+                
+                // Изчисли статистики
+                let avgPoints = 0;
+                let avgGrade = 0;
+                let avgPercentage = 0;
+                
+                if (resultsCount > 0) {
+                    avgPoints = (testResults.reduce((sum, r) => sum + r.points, 0) / resultsCount).toFixed(1);
+                    avgPercentage = (testResults.reduce((sum, r) => sum + r.percentage, 0) / resultsCount).toFixed(1);
+                    
+                    // Изчисли средната оценка (поддържа десетични оценки)
+                    const gradeValues = testResults.map(r => parseFloat(r.grade) || 0);
+                    avgGrade = (gradeValues.reduce((sum, g) => sum + g, 0) / resultsCount).toFixed(2);
+                }
+
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${test.name}</td>
+                        <td>${test.class}</td>
+                        <td>${test.type}</td>
+                        <td>${formatDate(test.date)}</td>
+                        <td>${test.maxPoints}</td>
+                        <td>
+                            <div style="margin-bottom: 5px;">
+                                <button class="btn" onclick="openResultsModal(${test.id})">
+                                    📝 ${resultsCount > 0 ? 'Редактирай резултати' : 'Въведи резултати'}
+                                </button>
+                                ${resultsCount > 0 ? `
+                                    <button class="btn" onclick="showTestAnalytics(${test.id})" style="margin-left: 5px; background-color: #9b59b6;">
+                                        📊 Анализ
+                                    </button>
+                                ` : ''}
+                            </div>
+                            ${resultsCount > 0 ? `
+                                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                                    <strong>Резултати:</strong> ${resultsCount}/${studentsInClass} ученици<br>
+                                    <strong>Средно:</strong> ${avgPoints}т/${test.maxPoints}т (${avgPercentage}%)<br>
+                                    <strong>Средна оценка:</strong> ${avgGrade}
+                                </div>
+                            ` : ''}
+                            <div style="margin-top: 5px;">
+                                <button class="btn btn-danger" onclick="deleteTest(${test.id})">🗑️ Изтрий</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function deleteTest(id) {
+            if (confirm('Сигурни ли сте, че искате да изтриете този тест?')) {
+                tests = tests.filter(t => t.id !== id);
+                // Изтрий и свързаните резултати
+                results = results.filter(r => r.testId !== id);
+                localStorage.setItem('tests', JSON.stringify(tests));
+                localStorage.setItem('results', JSON.stringify(results));
+                displayTests();
+                showAlert('Тестът е изтрит успешно!', 'success');
+            }
+        }
+
+        // Функция за анализи
+        function generateAnalytics() {
+            const analyticsResults = document.getElementById('analyticsResults');
+            const selectedClass = document.getElementById('analyticsClass').value;
+            
+            if (!selectedClass) {
+                analyticsResults.innerHTML = '<p>Моля изберете клас за да видите анализите.</p>';
+                return;
+            }
+            
+            // Намери учениците и тестовете за избрания клас
+            const classStudents = students.filter(s => s.class === selectedClass);
+            const classTests = tests.filter(t => t.class === selectedClass);
+            const classResults = results.filter(r => {
+                const student = students.find(s => s.id === r.studentId);
+                return student && student.class === selectedClass;
+            });
+            
+            if (classStudents.length === 0) {
+                analyticsResults.innerHTML = '<p>Няма ученици в този клас.</p>';
+                return;
+            }
+            
+            if (classTests.length === 0) {
+                analyticsResults.innerHTML = '<p>Няма тестове за този клас.</p>';
+                return;
+            }
+            
+            // Изчисли общи статистики
+            const totalStudents = classStudents.length;
+            const totalTests = classTests.length;
+            const totalResults = classResults.length;
+            
+            // Статистики по оценки
+            const gradeStats = {
+                '6': classResults.filter(r => r.grade === '6').length,
+                '5': classResults.filter(r => r.grade === '5').length,
+                '4': classResults.filter(r => r.grade === '4').length,
+                '3': classResults.filter(r => r.grade === '3').length,
+                '2': classResults.filter(r => r.grade === '2').length
+            };
+            
+            // Изчисли проценти за разпределението
+            const totalGrades = Object.values(gradeStats).reduce((sum, count) => sum + count, 0);
+            const gradePercentages = {
+                '6': totalGrades > 0 ? ((gradeStats['6'] / totalGrades) * 100).toFixed(1) : 0,
+                '5': totalGrades > 0 ? ((gradeStats['5'] / totalGrades) * 100).toFixed(1) : 0,
+                '4': totalGrades > 0 ? ((gradeStats['4'] / totalGrades) * 100).toFixed(1) : 0,
+                '3': totalGrades > 0 ? ((gradeStats['3'] / totalGrades) * 100).toFixed(1) : 0,
+                '2': totalGrades > 0 ? ((gradeStats['2'] / totalGrades) * 100).toFixed(1) : 0
+            };
+            
+            // Средна успеваемост
+            const avgPercentage = totalResults > 0 ? 
+                (classResults.reduce((sum, r) => sum + r.percentage, 0) / totalResults).toFixed(1) : 0;
+            
+            // Средна оценка изчислена от процентите
+            let avgGrade = '0';
+            if (totalResults > 0) {
+                const avgPercentageValue = parseFloat(avgPercentage);
+                if (avgPercentageValue >= 92) {
+                    avgGrade = '6.00';
+                } else if (avgPercentageValue >= 76) {
+                    avgGrade = '5.00';
+                } else if (avgPercentageValue >= 60) {
+                    avgGrade = '4.00';
+                } else if (avgPercentageValue >= 40) {
+                    avgGrade = '3.00';
+                } else if (avgPercentageValue > 0) {
+                    avgGrade = '2.00';
+                } else {
+                    avgGrade = '0.00';
+                }
+            }
+            
+            // Добри оценки (5-6)
+            const goodGrades = gradeStats['5'] + gradeStats['6'];
+            const goodGradesPercentage = totalGrades > 0 ? ((goodGrades / totalGrades) * 100).toFixed(1) : 0;
+            
+            
+            analyticsResults.innerHTML = `
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>📊 Обща статистика за клас ${selectedClass}</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">👥 Ученици в класа</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #27ae60; margin: 5px 0;">${totalStudents}</p>
+                        </div>
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">📝 Общо резултати</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #3498db; margin: 5px 0;">${totalResults}</p>
+                        </div>
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">📊 Среден успех</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #9b59b6; margin: 5px 0;">${avgGrade}</p>
+                        </div>
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">🎯 Добри оценки (5-6)</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #e67e22; margin: 5px 0;">${goodGradesPercentage}%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>🎯 Разпределение на оценките</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px;">
+                        <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #155724;">Отличен (6)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #155724; margin: 5px 0;">${gradeStats['6']} бр.</p>
+                            <p style="font-size: 14px; color: #155724; margin: 0;">${gradePercentages['6']}%</p>
+                        </div>
+                        <div style="background-color: #d1ecf1; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #0c5460;">Много добър (5)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #0c5460; margin: 5px 0;">${gradeStats['5']} бр.</p>
+                            <p style="font-size: 14px; color: #0c5460; margin: 0;">${gradePercentages['5']}%</p>
+                        </div>
+                        <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #856404;">Добър (4)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #856404; margin: 5px 0;">${gradeStats['4']} бр.</p>
+                            <p style="font-size: 14px; color: #856404; margin: 0;">${gradePercentages['4']}%</p>
+                        </div>
+                        <div style="background-color: #f8d7da; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #721c24;">Среден (3)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #721c24; margin: 5px 0;">${gradeStats['3']} бр.</p>
+                            <p style="font-size: 14px; color: #721c24; margin: 0;">${gradePercentages['3']}%</p>
+                        </div>
+                        <div style="background-color: #f5c6cb; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #721c24;">Слаб (2)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #721c24; margin: 5px 0;">${gradeStats['2']} бр.</p>
+                            <p style="font-size: 14px; color: #721c24; margin: 0;">${gradePercentages['2']}%</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Помощни функции
+        function updateClassFilters() {
+            const existingClasses = [...new Set(students.map(s => s.class))].sort();
+            const allClasses = [...new Set([...classes.map(c => c.name), ...existingClasses])].sort();
+            
+            // Обнови селектора за преглед на ученици
+            const studentClassFilter = document.getElementById('studentClassFilter');
+            if (studentClassFilter) {
+                const currentValue = studentClassFilter.value;
+                studentClassFilter.innerHTML = '<option value="">Изберете клас</option>' +
+                    allClasses.map(c => `<option value="${c}">${c}</option>`).join('');
+                studentClassFilter.value = currentValue;
+            }
+
+            // Обнови селекторите за тестове
+            const testClassSelect = document.getElementById('testClass');
+            if (testClassSelect) {
+                const testCurrentValue = testClassSelect.value;
+                testClassSelect.innerHTML = '<option value="">Изберете клас</option>' +
+                    allClasses.map(c => `<option value="${c}">${c}</option>`).join('');
+                testClassSelect.value = testCurrentValue;
+            }
+
+            // Обнови селектора за анализи
+            const analyticsClassSelect = document.getElementById('analyticsClass');
+            if (analyticsClassSelect) {
+                const analyticsCurrentValue = analyticsClassSelect.value;
+                analyticsClassSelect.innerHTML = '<option value="">Изберете клас</option>' +
+                    allClasses.map(c => `<option value="${c}">${c}</option>`).join('');
+                analyticsClassSelect.value = analyticsCurrentValue;
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('bg-BG');
+        }
+
+        function showAlert(message, type) {
+            const alertsContainer = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type === 'error' ? 'error' : 'success'}`;
+            alert.textContent = message;
+            
+            alertsContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Глобална променлива за текущия тест
+        let currentTestId = null;
+
+        // Функции за резултати
+        function openResultsModal(testId) {
+            currentTestId = testId;
+            const test = tests.find(t => t.id === testId);
+            if (!test) {
+                showAlert('Тестът не е намерен!', 'error');
+                return;
+            }
+
+            // Покажи информацията за теста
+            document.getElementById('modalTitle').textContent = `Резултати за: ${test.name}`;
+            document.getElementById('modalTestInfo').innerHTML = `
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                    <strong>Тест:</strong> ${test.name}<br>
+                    <strong>Клас:</strong> ${test.class}<br>
+                    <strong>Тип:</strong> ${test.type}<br>
+                    <strong>Дата:</strong> ${formatDate(test.date)}<br>
+                    <strong>Максимални точки:</strong> ${test.maxPoints}
+                </div>
+            `;
+
+            // Намери учениците от този клас
+            const classStudents = students.filter(s => s.class === test.class).sort((a, b) => a.number - b.number);
+            
+            if (classStudents.length === 0) {
+                showAlert('Няма ученици в този клас!', 'error');
+                return;
+            }
+
+            // Генерирай таблицата с резултати
+            generateResultsTable(classStudents, test);
+            
+            // Покажи модалното прозорче
+            document.getElementById('resultsModal').style.display = 'block';
+        }
+
+        function generateResultsTable(classStudents, test) {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+
+            classStudents.forEach(student => {
+                // Намери съществуващия резултат за този ученик и тест
+                const existingResult = results.find(r => r.studentId === student.id && r.testId === test.id);
+                const points = existingResult ? existingResult.points : '';
+                const grade = existingResult ? existingResult.grade : '';
+                const percentage = existingResult ? existingResult.percentage : '';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${student.number}</td>
+                    <td>${student.firstName}</td>
+                    <td>${student.middleName}</td>
+                    <td>${student.lastName}</td>
+                    <td>
+                        <input type="number" 
+                               class="result-input" 
+                               id="points_${student.id}" 
+                               value="${points}" 
+                               min="0" 
+                               max="${test.maxPoints}" 
+                               onchange="calculateGrade(${student.id}, ${test.maxPoints})"
+                               placeholder="0">
+                    </td>
+                    <td>
+                        <span id="grade_${student.id}" class="grade-display">${grade}</span>
+                    </td>
+                    <td>
+                        <span id="percentage_${student.id}">${percentage}%</span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function calculateGrade(studentId, maxPoints) {
+            const pointsInput = document.getElementById(`points_${studentId}`);
+            const gradeSpan = document.getElementById(`grade_${studentId}`);
+            const percentageSpan = document.getElementById(`percentage_${studentId}`);
+            
+            if (!pointsInput || !gradeSpan || !percentageSpan) return;
+
+            const points = parseFloat(pointsInput.value) || 0;
+            const percentage = maxPoints > 0 ? (points / maxPoints) * 100 : 0;
+            
+            // Изчисли десетичната оценка според българската система
+            let grade = '';
+            let gradeClass = '';
+            
+            if (percentage >= 92) {
+                // 6.00 - 6.00 (92-100%)
+                grade = '6.00';
+                gradeClass = 'grade-excellent';
+            } else if (percentage >= 76) {
+                // 5.00 - 5.99 (76-91%)
+                const gradeValue = 5 + ((percentage - 76) / 15) * 0.99;
+                grade = gradeValue.toFixed(2);
+                gradeClass = 'grade-very-good';
+            } else if (percentage >= 60) {
+                // 4.00 - 4.99 (60-75%)
+                const gradeValue = 4 + ((percentage - 60) / 15) * 0.99;
+                grade = gradeValue.toFixed(2);
+                gradeClass = 'grade-good';
+            } else if (percentage >= 40) {
+                // 3.00 - 3.99 (40-59%)
+                const gradeValue = 3 + ((percentage - 40) / 19) * 0.99;
+                grade = gradeValue.toFixed(2);
+                gradeClass = 'grade-satisfactory';
+            } else if (percentage > 0) {
+                // 2.00 - 2.99 (0-39%)
+                const gradeValue = 2 + (percentage / 40) * 0.99;
+                grade = gradeValue.toFixed(2);
+                gradeClass = 'grade-poor';
+            } else {
+                grade = '';
+                gradeClass = '';
+            }
+
+            gradeSpan.textContent = grade;
+            gradeSpan.className = `grade-display ${gradeClass}`;
+            percentageSpan.textContent = `${Math.round(percentage)}%`;
+        }
+
+        function fillBulkPoints() {
+            const bulkPoints = document.getElementById('bulkPoints').value;
+            if (!bulkPoints || bulkPoints < 0) {
+                showAlert('Моля въведете валиден брой точки!', 'error');
+                return;
+            }
+
+            const test = tests.find(t => t.id === currentTestId);
+            if (!test) return;
+
+            const inputs = document.querySelectorAll('.result-input');
+            inputs.forEach(input => {
+                input.value = bulkPoints;
+                const studentId = input.id.replace('points_', '');
+                calculateGrade(parseInt(studentId), test.maxPoints);
+            });
+
+            showAlert(`Попълнени са ${inputs.length} резултата с ${bulkPoints} точки!`, 'success');
+        }
+
+        function clearAllResults() {
+            if (!confirm('Сигурни ли сте, че искате да изчистите всички резултати?')) {
+                return;
+            }
+
+            const inputs = document.querySelectorAll('.result-input');
+            inputs.forEach(input => {
+                input.value = '';
+                const studentId = input.id.replace('points_', '');
+                const test = tests.find(t => t.id === currentTestId);
+                if (test) {
+                    calculateGrade(parseInt(studentId), test.maxPoints);
+                }
+            });
+
+            showAlert('Всички резултати са изчистени!', 'success');
+        }
+
+        function saveResults() {
+            if (!currentTestId) return;
+
+            const test = tests.find(t => t.id === currentTestId);
+            if (!test) return;
+
+            const classStudents = students.filter(s => s.class === test.class);
+            let savedCount = 0;
+            let errors = [];
+
+            // Изтрий съществуващите резултати за този тест
+            results = results.filter(r => r.testId !== currentTestId);
+
+            classStudents.forEach(student => {
+                const pointsInput = document.getElementById(`points_${student.id}`);
+                if (!pointsInput) return;
+
+                const points = parseFloat(pointsInput.value);
+                
+                // Ако няма въведени точки, прескачай
+                if (isNaN(points) || points === '') return;
+
+                if (points < 0 || points > test.maxPoints) {
+                    errors.push(`${student.firstName} ${student.lastName}: Точките трябва да са между 0 и ${test.maxPoints}`);
+                    return;
+                }
+
+                const percentage = (points / test.maxPoints) * 100;
+                let grade = '';
+                
+                if (percentage >= 92) {
+                    grade = '6.00';
+                } else if (percentage >= 76) {
+                    const gradeValue = 5 + ((percentage - 76) / 15) * 0.99;
+                    grade = gradeValue.toFixed(2);
+                } else if (percentage >= 60) {
+                    const gradeValue = 4 + ((percentage - 60) / 15) * 0.99;
+                    grade = gradeValue.toFixed(2);
+                } else if (percentage >= 40) {
+                    const gradeValue = 3 + ((percentage - 40) / 19) * 0.99;
+                    grade = gradeValue.toFixed(2);
+                } else if (percentage > 0) {
+                    const gradeValue = 2 + (percentage / 40) * 0.99;
+                    grade = gradeValue.toFixed(2);
+                }
+
+                const result = {
+                    id: Date.now() + Math.random(),
+                    studentId: student.id,
+                    testId: test.id,
+                    points: points,
+                    grade: grade,
+                    percentage: percentage,
+                    dateAdded: new Date().toISOString()
+                };
+
+                results.push(result);
+                savedCount++;
+            });
+
+            if (errors.length > 0) {
+                showAlert(`Грешки при запазването:\n${errors.join('\n')}`, 'error');
+            }
+
+            localStorage.setItem('results', JSON.stringify(results));
+            
+            if (savedCount > 0) {
+                showAlert(`Успешно запазени ${savedCount} резултата!`, 'success');
+                closeResultsModal();
+            } else {
+                showAlert('Няма резултати за запазване!', 'error');
+            }
+        }
+
+        function closeResultsModal() {
+            document.getElementById('resultsModal').style.display = 'none';
+            currentTestId = null;
+            document.getElementById('bulkPoints').value = '';
+        }
+
+        // Функции за анализ на тест
+        function showTestAnalytics(testId) {
+            const test = tests.find(t => t.id === testId);
+            if (!test) {
+                showAlert('Тестът не е намерен!', 'error');
+                return;
+            }
+
+            // Намери резултатите за този тест
+            const testResults = results.filter(r => r.testId === testId);
+            const classStudents = students.filter(s => s.class === test.class);
+            
+            if (testResults.length === 0) {
+                showAlert('Няма резултати за този тест!', 'error');
+                return;
+            }
+
+            // Задай заглавието
+            document.getElementById('testAnalyticsTitle').textContent = `Анализ: ${test.name}`;
+
+            // Изчисли статистики
+            const totalStudents = classStudents.length;
+            const totalResults = testResults.length;
+            
+            // Статистики по оценки (поддържа десетични оценки)
+            const gradeStats = {
+                '6': testResults.filter(r => parseFloat(r.grade) >= 6.0).length,
+                '5': testResults.filter(r => parseFloat(r.grade) >= 5.0 && parseFloat(r.grade) < 6.0).length,
+                '4': testResults.filter(r => parseFloat(r.grade) >= 4.0 && parseFloat(r.grade) < 5.0).length,
+                '3': testResults.filter(r => parseFloat(r.grade) >= 3.0 && parseFloat(r.grade) < 4.0).length,
+                '2': testResults.filter(r => parseFloat(r.grade) >= 2.0 && parseFloat(r.grade) < 3.0).length
+            };
+            
+            // Изчисли проценти за разпределението
+            const totalGrades = Object.values(gradeStats).reduce((sum, count) => sum + count, 0);
+            const gradePercentages = {
+                '6': totalGrades > 0 ? ((gradeStats['6'] / totalGrades) * 100).toFixed(1) : 0,
+                '5': totalGrades > 0 ? ((gradeStats['5'] / totalGrades) * 100).toFixed(1) : 0,
+                '4': totalGrades > 0 ? ((gradeStats['4'] / totalGrades) * 100).toFixed(1) : 0,
+                '3': totalGrades > 0 ? ((gradeStats['3'] / totalGrades) * 100).toFixed(1) : 0,
+                '2': totalGrades > 0 ? ((gradeStats['2'] / totalGrades) * 100).toFixed(1) : 0
+            };
+            
+            // Средна успеваемост
+            const avgPercentage = totalResults > 0 ? 
+                (testResults.reduce((sum, r) => sum + r.percentage, 0) / totalResults).toFixed(1) : 0;
+            
+            // Средна оценка (изчислена от реалните оценки)
+            let avgGrade = '0.00';
+            if (totalResults > 0) {
+                const gradeValues = testResults.map(r => parseFloat(r.grade) || 0);
+                const avgGradeValue = gradeValues.reduce((sum, g) => sum + g, 0) / totalResults;
+                avgGrade = avgGradeValue.toFixed(2);
+            }
+            
+            // Добри оценки (5-6)
+            const goodGrades = gradeStats['5'] + gradeStats['6'];
+            const goodGradesPercentage = totalGrades > 0 ? ((goodGrades / totalGrades) * 100).toFixed(1) : 0;
+
+            // Генерирай HTML за анализа
+            document.getElementById('testAnalyticsContent').innerHTML = `
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>📊 Информация за теста</h3>
+                    <div style="background-color: white; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        <strong>Тест:</strong> ${test.name}<br>
+                        <strong>Клас:</strong> ${test.class}<br>
+                        <strong>Тип:</strong> ${test.type}<br>
+                        <strong>Дата:</strong> ${formatDate(test.date)}<br>
+                        <strong>Максимални точки:</strong> ${test.maxPoints}
+                    </div>
+                </div>
+
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>📊 Обща статистика</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">👥 Ученици в класа</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #27ae60; margin: 5px 0;">${totalStudents}</p>
+                        </div>
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">📝 Резултати</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #3498db; margin: 5px 0;">${totalResults}</p>
+                        </div>
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">📊 Среден успех</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #9b59b6; margin: 5px 0;">${avgGrade}</p>
+                        </div>
+                        <div style="background-color: white; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #2c3e50;">🎯 Добри оценки (5-6)</h4>
+                            <p style="font-size: 24px; font-weight: bold; color: #e67e22; margin: 5px 0;">${goodGradesPercentage}%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px;">
+                    <h3>🎯 Разпределение на оценките</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px;">
+                        <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #155724;">Отличен (6)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #155724; margin: 5px 0;">${gradeStats['6']} бр.</p>
+                            <p style="font-size: 14px; color: #155724; margin: 0;">${gradePercentages['6']}%</p>
+                        </div>
+                        <div style="background-color: #d1ecf1; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #0c5460;">Много добър (5)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #0c5460; margin: 5px 0;">${gradeStats['5']} бр.</p>
+                            <p style="font-size: 14px; color: #0c5460; margin: 0;">${gradePercentages['5']}%</p>
+                        </div>
+                        <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #856404;">Добър (4)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #856404; margin: 5px 0;">${gradeStats['4']} бр.</p>
+                            <p style="font-size: 14px; color: #856404; margin: 0;">${gradePercentages['4']}%</p>
+                        </div>
+                        <div style="background-color: #f8d7da; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #721c24;">Среден (3)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #721c24; margin: 5px 0;">${gradeStats['3']} бр.</p>
+                            <p style="font-size: 14px; color: #721c24; margin: 0;">${gradePercentages['3']}%</p>
+                        </div>
+                        <div style="background-color: #f5c6cb; padding: 15px; border-radius: 5px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h4 style="margin: 0; color: #721c24;">Слаб (2)</h4>
+                            <p style="font-size: 20px; font-weight: bold; color: #721c24; margin: 5px 0;">${gradeStats['2']} бр.</p>
+                            <p style="font-size: 14px; color: #721c24; margin: 0;">${gradePercentages['2']}%</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Покажи модалното прозорче
+            document.getElementById('testAnalyticsModal').style.display = 'block';
+        }
+
+        function closeTestAnalyticsModal() {
+            document.getElementById('testAnalyticsModal').style.display = 'none';
+        }
+
+        // Затваряне на модалното прозорче при клик извън него
+        window.onclick = function(event) {
+            const modal = document.getElementById('resultsModal');
+            const analyticsModal = document.getElementById('testAnalyticsModal');
+            const studentsModal = document.getElementById('studentsModal');
+            if (event.target === modal) {
+                closeResultsModal();
+            }
+            if (event.target === analyticsModal) {
+                closeTestAnalyticsModal();
+            }
+            if (event.target === studentsModal) {
+                closeStudentsModal();
+            }
+        }
+    </script>
+</body>
+</html>
