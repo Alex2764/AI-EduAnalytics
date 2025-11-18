@@ -89,13 +89,13 @@ export const ClassAnalytics: React.FC = () => {
   const totalStudents = classStudents.length;
   const totalResults = classResults.length;
 
-  // Grade distribution
+  // Grade distribution (българска система на закръгляване)
   const gradeStats = {
-    6: classResults.filter(r => parseFloat(r.grade) >= 6.0).length,
-    5: classResults.filter(r => parseFloat(r.grade) >= 5.0 && parseFloat(r.grade) < 6.0).length,
-    4: classResults.filter(r => parseFloat(r.grade) >= 4.0 && parseFloat(r.grade) < 5.0).length,
-    3: classResults.filter(r => parseFloat(r.grade) >= 3.0 && parseFloat(r.grade) < 4.0).length,
-    2: classResults.filter(r => parseFloat(r.grade) >= 2.0 && parseFloat(r.grade) < 3.0).length,
+    6: classResults.filter(r => parseFloat(r.grade) >= 5.50).length, // 5.50+ → 6
+    5: classResults.filter(r => parseFloat(r.grade) >= 4.50 && parseFloat(r.grade) < 5.50).length, // 4.50-5.49 → 5
+    4: classResults.filter(r => parseFloat(r.grade) >= 3.50 && parseFloat(r.grade) < 4.50).length, // 3.50-4.49 → 4
+    3: classResults.filter(r => parseFloat(r.grade) >= 2.50 && parseFloat(r.grade) < 3.50).length, // 2.50-3.49 → 3
+    2: classResults.filter(r => parseFloat(r.grade) >= 2.0 && parseFloat(r.grade) < 2.50).length, // 2.00-2.49 → 2
   };
 
   const gradePercentages = {
@@ -128,7 +128,7 @@ export const ClassAnalytics: React.FC = () => {
       (typeResults.reduce((sum, r) => sum + parseFloat(r.grade), 0) / typeResults.length).toFixed(2) : '0.00';
 
     const passRate = typeResults.length > 0 ? 
-      ((typeResults.filter(r => parseFloat(r.grade) >= 3.0).length / typeResults.length) * 100).toFixed(1) : '0';
+      ((typeResults.filter(r => parseFloat(r.grade) >= 2.50).length / typeResults.length) * 100).toFixed(1) : '0';
 
     return {
       type,

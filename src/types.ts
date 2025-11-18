@@ -25,6 +25,20 @@ export type TestType =
   | 'Междинно ниво'
   | 'Текуща оценка';
 
+export interface GradeScale {
+  grade2: number | string; // Минимални точки за оценка 2
+  grade3: number | string; // Минимални точки за оценка 3
+  grade4: number | string; // Минимални точки за оценка 4
+  grade5: number | string; // Минимални точки за оценка 5
+  grade6: number | string; // Минимални точки за оценка 6
+}
+
+export interface Question {
+  id: string;
+  text: string;
+  points: number;
+}
+
 export interface Test {
   id: string;
   name: string;
@@ -32,6 +46,13 @@ export interface Test {
   type: TestType;
   date: string;
   maxPoints: number;
+  gradeScale: GradeScale; // Задължителна скала за оценяване
+  questions: Question[]; // Въпроси в теста
+}
+
+export interface QuestionResult {
+  questionId: string;
+  points: number;
 }
 
 export interface Result {
@@ -43,4 +64,7 @@ export interface Result {
   percentage: number;
   dateAdded: string;
   participated: boolean;
+  cancelled: boolean; // Анулиран тест (напр. при преписване)
+  cancelReason?: string; // Причина за анулиране
+  questionResults?: QuestionResult[]; // Детайлни точки по въпроси
 }

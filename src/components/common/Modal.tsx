@@ -13,19 +13,36 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   title,
   children,
+  size = 'md',
 }) => {
   useEffect(() => {
     if (isOpen) {
-      // Block scroll on body when modal is open
-      document.body.style.overflow = 'hidden';
+      // Store current scroll position
+      const scrollY = window.scrollY;
+      document.body.setAttribute('data-scroll-y', scrollY.toString());
+      
+      // Add class to block scroll
+      document.body.classList.add('modal-open');
     } else {
-      // Restore scroll when modal is closed
-      document.body.style.overflow = 'unset';
+      // Remove class to restore scroll
+      document.body.classList.remove('modal-open');
+      
+      // Restore scroll position
+      const scrollY = document.body.getAttribute('data-scroll-y');
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY));
+      }
+      document.body.removeAttribute('data-scroll-y');
     }
 
     // Cleanup function to restore scroll when component unmounts
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.classList.remove('modal-open');
+      const scrollY = document.body.getAttribute('data-scroll-y');
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY));
+      }
+      document.body.removeAttribute('data-scroll-y');
     };
   }, [isOpen]);
 
@@ -33,7 +50,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div className="modal">
-      <div className="modal-content">
+      <div className="modal-content" data-size={size}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button

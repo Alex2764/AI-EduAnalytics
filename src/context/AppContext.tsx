@@ -111,14 +111,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       // Map Supabase data to our Test type
-      const mappedTests: Test[] = (data || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        class: item.class_name, // Using class_name from table
-        type: item.type as any,
-        date: item.date,
-        maxPoints: item.max_points
-      }));
+      const mappedTests: Test[] = (data || []).map((item: any) => {
+        const maxPoints = item.max_points;
+        // Load gradeScale from database or create default
+        let gradeScale;
+        if (item.grade_scale) {
+          gradeScale = item.grade_scale;
+        } else {
+          gradeScale = {
+            grade2: 0,
+            grade3: Math.round(maxPoints * 0.40),
+            grade4: Math.round(maxPoints * 0.60),
+            grade5: Math.round(maxPoints * 0.76),
+            grade6: Math.round(maxPoints * 0.92),
+          };
+        }
+        
+              return {
+                id: item.id,
+                name: item.name,
+                class: item.class_name, // Using class_name from table
+                type: item.type as any,
+                date: item.date,
+                maxPoints: maxPoints,
+                gradeScale: gradeScale,
+                questions: item.questions || [],
+              };
+      });
       
       setTests(mappedTests);
     } catch (err: any) {
@@ -145,7 +164,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         grade: item.grade,
         percentage: Number(item.percentage),
         dateAdded: item.date_added,
-        participated: item.participated !== false // Default to true if null/undefined
+        participated: item.participated !== false, // Default to true if null/undefined
+        cancelled: item.cancelled || false, // Default to false if null/undefined
+        cancelReason: item.cancel_reason || undefined,
+        questionResults: item.question_results || []
       }));
       
       setResults(mappedResults);
@@ -169,7 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     loadData();
-  }, []);
+  }, [fetchClasses, fetchStudents, fetchTests, fetchResults]);
 
   // ========================================
   // CLASSES CRUD
@@ -355,18 +377,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Find class_id by class name
       const classRecord = classes.find(c => c.name === testData.class);
       
-      const { error } = await supabase
-        .from('tests')
-        .insert([{
-          name: testData.name,
-          class_id: classRecord?.id || null,
-          class_name: testData.class,
-          type: testData.type,
-          date: testData.date,
-          max_points: testData.maxPoints
-        }])
-        .select()
-        .single();
+            const { error } = await supabase
+              .from('tests')
+              .insert([{
+                name: testData.name,
+                class_id: classRecord?.id || null,
+                class_name: testData.class,
+                type: testData.type,
+                date: testData.date,
+                max_points: testData.maxPoints,
+                grade_scale: testData.gradeScale,
+                questions: testData.questions || []
+              }])
+              .select()
+              .single();
 
       if (error) throw error;
       
@@ -385,6 +409,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (testData.type) updateData.type = testData.type;
       if (testData.date) updateData.date = testData.date;
       if (testData.maxPoints) updateData.max_points = testData.maxPoints;
+            if (testData.gradeScale) updateData.grade_scale = testData.gradeScale;
+            if (testData.questions) updateData.questions = testData.questions;
       
       if (testData.class) {
         const classRecord = classes.find(c => c.name === testData.class);
@@ -438,7 +464,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           points: resultData.points,
           grade: resultData.grade,
           percentage: resultData.percentage,
-          date_added: resultData.dateAdded
+          date_added: resultData.dateAdded,
+          cancelled: resultData.cancelled || false,
+          cancel_reason: resultData.cancelReason || null,
+          question_results: resultData.questionResults || null
         }])
         .select()
         .single();
@@ -461,7 +490,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         points: r.points,
         grade: r.grade,
         percentage: r.percentage,
-        date_added: r.dateAdded
+        date_added: r.dateAdded,
+        cancelled: r.cancelled || false,
+        cancel_reason: r.cancelReason || null,
+        question_results: r.questionResults || null
       }));
 
       const { error } = await supabase
@@ -486,6 +518,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (resultData.grade) updateData.grade = resultData.grade;
       if (resultData.percentage !== undefined) updateData.percentage = resultData.percentage;
       if (resultData.dateAdded) updateData.date_added = resultData.dateAdded;
+      if (resultData.cancelled !== undefined) updateData.cancelled = resultData.cancelled;
+      if (resultData.cancelReason !== undefined) updateData.cancel_reason = resultData.cancelReason;
+      if (resultData.questionResults !== undefined) updateData.question_results = resultData.questionResults;
 
       const { error } = await supabase
         .from('results')
@@ -522,10 +557,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const saveResults = async (testId: string, resultsData: Omit<Result, 'id'>[]) => {
     try {
       // Delete existing results for this test
-      await supabase
+      const { error: deleteError } = await supabase
         .from('results')
         .delete()
         .eq('test_id', testId);
+
+      if (deleteError) throw deleteError;
 
       // Insert new results
       const insertData = resultsData.map(r => ({
@@ -535,7 +572,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         grade: r.grade,
         percentage: r.percentage,
         date_added: r.dateAdded,
-        participated: r.participated
+        participated: r.participated,
+        cancelled: r.cancelled || false,
+        cancel_reason: r.cancelReason || null,
+        question_results: r.questionResults || null
       }));
 
       const { error } = await supabase

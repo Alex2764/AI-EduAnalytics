@@ -3,7 +3,7 @@ import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { useAppContext } from '../../context/AppContext';
 import { formatDate } from '../../utils/dateFormatter';
-import { calculateGenderStats, getNonParticipatingStudents } from '../../utils/studentAnalytics';
+import { calculateGenderStats, getNonParticipatingStudents, getCancelledTestStudents, calculateQuestionStats } from '../../utils/studentAnalytics';
 
 interface TestAnalyticsProps {
   isOpen: boolean;
@@ -16,12 +16,14 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
 
   const test = tests.find(t => t.id === testId);
   const allTestResults = results.filter(r => r.testId === testId);
-  const testResults = allTestResults.filter(r => r.participated); // Only participated students
+  const testResults = allTestResults.filter(r => r.participated && !r.cancelled); // Only participated and not cancelled students
   const classStudents = students.filter(s => s.class === test?.class);
   
   // Calculate gender statistics and get non-participating students early
   const genderStats = test ? calculateGenderStats(testId, test.class, students, allTestResults) : null;
   const nonParticipatingStudents = test ? getNonParticipatingStudents(testId, test.class, students, allTestResults) : [];
+  const cancelledStudents = test ? getCancelledTestStudents(testId, test.class, students, allTestResults) : [];
+  const questionStats = test ? calculateQuestionStats(testId, tests, allTestResults) : [];
 
   if (!test) {
     return (
@@ -132,13 +134,13 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
   const totalStudents = classStudents.length;
   const totalResults = testResults.length;
   
-  // Grade distribution
+  // Grade distribution (българска система на закръгляване)
   const gradeStats = {
-    6: testResults.filter(r => parseFloat(r.grade) >= 6.0).length,
-    5: testResults.filter(r => parseFloat(r.grade) >= 5.0 && parseFloat(r.grade) < 6.0).length,
-    4: testResults.filter(r => parseFloat(r.grade) >= 4.0 && parseFloat(r.grade) < 5.0).length,
-    3: testResults.filter(r => parseFloat(r.grade) >= 3.0 && parseFloat(r.grade) < 4.0).length,
-    2: testResults.filter(r => parseFloat(r.grade) >= 2.0 && parseFloat(r.grade) < 3.0).length,
+    6: testResults.filter(r => parseFloat(r.grade) >= 5.50).length, // 5.50+ → 6
+    5: testResults.filter(r => parseFloat(r.grade) >= 4.50 && parseFloat(r.grade) < 5.50).length, // 4.50-5.49 → 5
+    4: testResults.filter(r => parseFloat(r.grade) >= 3.50 && parseFloat(r.grade) < 4.50).length, // 3.50-4.49 → 4
+    3: testResults.filter(r => parseFloat(r.grade) >= 2.50 && parseFloat(r.grade) < 3.50).length, // 2.50-3.49 → 3
+    2: testResults.filter(r => parseFloat(r.grade) >= 2.0 && parseFloat(r.grade) < 2.50).length, // 2.00-2.49 → 2
   };
 
   const gradePercentages = {
@@ -164,7 +166,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
   const goodGradesPercentage = totalResults > 0 ? ((goodGrades / totalResults) * 100).toFixed(1) : '0';
 
   const passRate = totalResults > 0 ? 
-    ((testResults.filter(r => parseFloat(r.grade) >= 3.0).length / totalResults) * 100).toFixed(1) : '0';
+    ((testResults.filter(r => parseFloat(r.grade) >= 2.50).length / totalResults) * 100).toFixed(1) : '0';
 
   // Gender statistics and non-participating students are already calculated above
   
@@ -408,6 +410,81 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
             </div>
           </div>
         </div>
+
+        {/* Question Statistics Section */}
+        {questionStats.length > 0 && (
+          <div className="question-stats-section">
+            <h3 className="section-title">📊 Статистика по въпроси</h3>
+            <p className="section-subtitle">Детайлен анализ на успеваемостта по всеки въпрос</p>
+            
+            <div className="stats-grid-container">
+              <div className="stats-grid">
+                {questionStats.map((qStat, index) => {
+                  const successPercentage = ((qStat.averagePoints / qStat.maxPoints) * 100);
+                  const getCardClass = (percentage: number) => {
+                    if (percentage >= 80) return 'stats-card excellent';
+                    if (percentage >= 60) return 'stats-card good';
+                    if (percentage >= 40) return 'stats-card average';
+                    return 'stats-card poor';
+                  };
+
+                  return (
+                    <div key={qStat.questionId} className={getCardClass(successPercentage)}>
+                      <div className="question-info">
+                        <span className="question-icon">
+                          {successPercentage >= 80 ? '✅' : 
+                           successPercentage >= 60 ? '⚠️' : 
+                           successPercentage >= 40 ? '🔶' : '❌'}
+                        </span>
+                        <span className="question-text">Задача {index + 1}</span>
+                      </div>
+                      <div className="percentage-display">
+                        <span className="percentage-value">{successPercentage.toFixed(0)}%</span>
+                        <span className="percentage-label">успех</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* Cancelled Tests Section */}
+        {cancelledStudents.length > 0 && (
+          <div className="non-participating-section">
+            <h3 className="section-title">🚫 Анулирани тестове</h3>
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+              <div className="participation-summary">
+                <span className="summary-text text-red-800">
+                  Общо: <strong>{cancelledStudents.length}</strong> ученика с анулирани тестове
+                </span>
+              </div>
+              <p className="text-sm text-red-600 mb-4">
+                ⚠️ Тези резултати не се включват в статистиката и средния успех на класа
+              </p>
+              <div className="students-grid">
+                {cancelledStudents.map(({ student, reason }) => (
+                  <div key={student.id} className="student-card bg-red-100 border-2 border-red-300">
+                    <div className="student-info">
+                      <div className="student-number bg-red-600 text-white">№{student.number}</div>
+                      <div className="student-name font-semibold">
+                        {student.firstName} {student.middleName} {student.lastName}
+                      </div>
+                      <div className="student-gender">
+                        {student.gender === 'male' ? '👨 Момче' : '👩 Момиче'}
+                      </div>
+                      <div className="mt-2 text-xs text-red-700 font-medium">
+                        📋 Причина: {reason}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </Modal>

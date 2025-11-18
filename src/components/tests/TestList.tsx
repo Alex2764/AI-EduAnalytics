@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '../common/Button';
 import { Table } from '../common/Table';
+import { EditGradeScaleModal } from './EditGradeScaleModal';
+import { GenerateReportModal } from './GenerateReportModal';
 import { useAppContext } from '../../context/AppContext';
 import { formatDate } from '../../utils/dateFormatter';
 import type { Test } from '../../types';
@@ -11,15 +13,38 @@ interface TestListProps {
 }
 
 export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalytics }) => {
-  const { tests, results, students, deleteTest } = useAppContext();
+  const { tests, results, students, classes, deleteTest } = useAppContext();
+  const [editingTest, setEditingTest] = useState<Test | null>(null);
+  const [showEditScaleModal, setShowEditScaleModal] = useState(false);
+  const [showGenerateReportModal, setShowGenerateReportModal] = useState(false);
+  const [selectedTest, setSelectedTest] = useState<Test | null>(null);
 
-  const handleDeleteTest = (testId: string) => {
+  const handleDeleteTest = async (testId: string) => {
     const test = tests.find(t => t.id === testId);
     if (!test) return;
 
     if (window.confirm(`Сигурни ли сте, че искате да изтриете теста "${test.name}"?`)) {
-      deleteTest(testId);
+      try {
+        await deleteTest(testId);
+      } catch (err: any) {
+        alert(err.message || 'Грешка при изтриване на тест!');
+      }
     }
+  };
+
+  const handleEditScale = (test: Test) => {
+    setEditingTest(test);
+    setShowEditScaleModal(true);
+  };
+
+  const handleGenerateReport = (test: Test) => {
+    setSelectedTest(test);
+    setShowGenerateReportModal(true);
+  };
+
+  const getClassId = (className: string): string | null => {
+    const classRecord = classes.find(c => c.name === className);
+    return classRecord?.id || null;
   };
 
   const getTestStatistics = (test: Test) => {
@@ -51,7 +76,7 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   };
 
   const columns = [
-    { key: 'index', label: '№' },
+    { key: 'index', label: '№ в клас' },
     { key: 'name', label: 'Име на тест' },
     { key: 'class', label: 'Клас' },
     { key: 'type', label: 'Тип' },
@@ -75,27 +100,54 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
         <td className="px-6 py-4 text-sm text-gray-900">{formatDate(test.date)}</td>
         <td className="px-6 py-4 text-sm text-gray-900">{test.maxPoints}</td>
         <td className="px-6 py-4 text-sm text-gray-900">
-          <div className="space-y-2">
-            {/* Action Buttons */}
-            <div className="flex space-x-2">
+          <div className="space-y-3">
+            {/* Action Buttons - 2x2 Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', rowGap: '10px' }}>
               <Button
                 onClick={() => onOpenResults(test.id)}
-                className="text-xs py-1 px-3"
+                className="text-xs py-2 px-3 btn-primary-action"
               >
                 {hasResults ? 'Редактирай резултати' : 'Въведи резултати'}
               </Button>
-              {hasResults && (
-                <Button
-                  onClick={() => onShowAnalytics(test.id)}
-                  className="text-xs py-1 px-3 bg-purple-600 hover:bg-purple-700"
-                >
-                  Анализ
-                </Button>
+              <Button
+                onClick={() => handleEditScale(test)}
+                className="text-xs py-2 px-3 btn-warning"
+              >
+                Скала
+              </Button>
+              {hasResults ? (
+                <>
+                  <Button
+                    onClick={() => onShowAnalytics(test.id)}
+                    className="text-xs py-2 px-3 btn-primary-action"
+                  >
+                    Анализ
+                  </Button>
+                  <Button
+                    onClick={() => handleGenerateReport(test)}
+                    className="text-xs py-2 px-3"
+                    variant="secondary"
+                  >
+                    AI Анализ
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div></div>
+                  <Button
+                    onClick={() => handleGenerateReport(test)}
+                    className="text-xs py-2 px-3"
+                    variant="secondary"
+                    disabled={!hasResults}
+                  >
+                    AI Анализ
+                  </Button>
+                </>
               )}
               <Button
                 variant="danger"
                 onClick={() => handleDeleteTest(test.id)}
-                className="text-xs py-1 px-3"
+                className="text-xs py-2 px-3"
               >
                 Изтрий
               </Button>
@@ -116,14 +168,37 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   };
 
   return (
-    <div className="card">
-      <h3 className="text-lg font-semibold mb-4">Създадени тестове</h3>
-      <Table
-        columns={columns}
-        data={sortedTests}
-        renderRow={renderRow}
-        emptyMessage="Няма създадени тестове"
+    <>
+      <div className="card">
+        <h3 className="text-lg font-semibold mb-4 text-center">Създадени тестове</h3>
+        <Table
+          columns={columns}
+          data={sortedTests}
+          renderRow={renderRow}
+          emptyMessage="Няма създадени тестове"
+        />
+      </div>
+
+      {/* Edit Grade Scale Modal */}
+      <EditGradeScaleModal
+        isOpen={showEditScaleModal}
+        onClose={() => {
+          setShowEditScaleModal(false);
+          setEditingTest(null);
+        }}
+        test={editingTest}
       />
-    </div>
+
+      {/* Generate Report Modal */}
+      <GenerateReportModal
+        isOpen={showGenerateReportModal}
+        onClose={() => {
+          setShowGenerateReportModal(false);
+          setSelectedTest(null);
+        }}
+        test={selectedTest}
+        classId={selectedTest ? getClassId(selectedTest.class) : null}
+      />
+    </>
   );
 };

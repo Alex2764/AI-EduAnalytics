@@ -14,6 +14,7 @@ interface SelectProps {
   required?: boolean;
   error?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -25,6 +26,7 @@ export const Select: React.FC<SelectProps> = ({
   required = false,
   error,
   className = '',
+  disabled = false,
 }) => {
   return (
     <div className={`form-group ${className}`}>
@@ -38,6 +40,7 @@ export const Select: React.FC<SelectProps> = ({
         value={value}
         onChange={onChange}
         required={required}
+        disabled={disabled}
         className={error ? 'border-red-500' : ''}
       >
         {placeholder && <option value="">{placeholder}</option>}

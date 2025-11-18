@@ -10,7 +10,7 @@ interface ClassListProps {
 export const ClassList: React.FC<ClassListProps> = ({ onManageStudents }) => {
   const { classes, students, deleteClass } = useAppContext();
 
-  const handleDeleteClass = (classId: string) => {
+  const handleDeleteClass = async (classId: string) => {
     const classToDelete = classes.find(c => c.id === classId);
     if (!classToDelete) return;
 
@@ -22,12 +22,16 @@ export const ClassList: React.FC<ClassListProps> = ({ onManageStudents }) => {
     }
 
     if (window.confirm(confirmMessage)) {
-      deleteClass(classId);
+      try {
+        await deleteClass(classId);
+      } catch (err: any) {
+        alert(err.message || 'Грешка при изтриване на клас!');
+      }
     }
   };
 
   const columns = [
-    { key: 'index', label: '№' },
+    { key: 'index', label: '№ в клас' },
     { key: 'name', label: 'Клас' },
     { key: 'schoolYear', label: 'Учебна година' },
     { key: 'studentCount', label: 'Брой ученици' },
@@ -46,10 +50,10 @@ export const ClassList: React.FC<ClassListProps> = ({ onManageStudents }) => {
         <td className="px-6 py-4 text-sm text-gray-900">{classItem.schoolYear}</td>
         <td className="px-6 py-4 text-sm text-gray-900">{studentCount}</td>
         <td className="px-6 py-4 text-sm text-gray-900">
-          <div className="flex space-x-2">
+          <div className="action-buttons">
             <Button
               onClick={() => onManageStudents(classItem.name)}
-              className="text-sm py-2 px-4"
+              className="btn-primary-action text-sm py-2 px-4"
             >
               Управление на ученици
             </Button>
@@ -68,7 +72,7 @@ export const ClassList: React.FC<ClassListProps> = ({ onManageStudents }) => {
 
   return (
     <div className="card">
-      <h3 className="text-lg font-semibold mb-4">Създадени класове</h3>
+      <h3 className="text-lg font-semibold mb-4 text-center">Създадени класове</h3>
       <Table
         columns={columns}
         data={sortedClasses}

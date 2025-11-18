@@ -78,7 +78,8 @@ export const getStudentResults = (
   tests: Test[],
   results: Result[]
 ): StudentResult[] => {
-  const studentResults = results.filter(r => r.studentId === studentId);
+  // Filter out cancelled results
+  const studentResults = results.filter(r => r.studentId === studentId && !r.cancelled);
   
   const validResults = studentResults
     .map(result => {
@@ -138,13 +139,13 @@ export const calculateStudentStats = (
   const highestGrade = Math.max(...grades);
   const lowestGrade = Math.min(...grades);
 
-  // Grade distribution
+  // Grade distribution (българска система на закръгляване)
   const gradeDistribution = {
-    excellent: grades.filter(g => g >= 6.0).length,
-    veryGood: grades.filter(g => g >= 5.0 && g < 6.0).length,
-    good: grades.filter(g => g >= 4.0 && g < 5.0).length,
-    average: grades.filter(g => g >= 3.0 && g < 4.0).length,
-    poor: grades.filter(g => g >= 2.0 && g < 3.0).length,
+    excellent: grades.filter(g => g >= 5.50).length, // 5.50+ → 6
+    veryGood: grades.filter(g => g >= 4.50 && g < 5.50).length, // 4.50-5.49 → 5
+    good: grades.filter(g => g >= 3.50 && g < 4.50).length, // 3.50-4.49 → 4
+    average: grades.filter(g => g >= 2.50 && g < 3.50).length, // 2.50-3.49 → 3
+    poor: grades.filter(g => g >= 2.0 && g < 2.50).length, // 2.00-2.49 → 2
   };
 
   // Test type statistics
@@ -291,13 +292,125 @@ export const getNonParticipatingStudents = (
   const classStudents = students.filter(s => s.class === className);
   const testResults = results.filter(r => r.testId === testId);
   
-  // Find students who don't have results OR have participated=false
+  // Find students who don't have results OR have participated=false (but not cancelled, as cancelled are handled separately)
   const nonParticipatingStudents = classStudents.filter(student => {
     const hasResult = testResults.find(r => r.studentId === student.id);
     return !hasResult || (hasResult && !hasResult.participated);
   });
   
   return nonParticipatingStudents;
+};
+
+/**
+ * Get students who had their tests cancelled
+ */
+export const getCancelledTestStudents = (
+  testId: string,
+  className: string,
+  students: Student[],
+  results: Result[]
+): Array<{ student: Student; reason: string }> => {
+  const classStudents = students.filter(s => s.class === className);
+  const testResults = results.filter(r => r.testId === testId && r.cancelled);
+  
+  return testResults
+    .map(result => {
+      const student = classStudents.find(s => s.id === result.studentId);
+      if (!student) return null;
+      return {
+        student,
+        reason: result.cancelReason || 'Анулиран',
+      };
+    })
+    .filter((item): item is { student: Student; reason: string } => item !== null);
+};
+
+/**
+ * Question statistics interface
+ */
+export interface QuestionStats {
+  questionId: string;
+  questionText: string;
+  maxPoints: number;
+  averagePoints: number;
+  successRate: number; // Percentage of students who got full points
+  partialSuccessRate: number; // Percentage of students who got some points
+  attemptedBy: number; // Number of students who attempted
+  fullScoreCount: number; // Number of students with full points
+  partialScoreCount: number; // Number of students with partial points
+  zeroScoreCount: number; // Number of students with zero points
+}
+
+/**
+ * Calculate statistics per question for a test
+ */
+export const calculateQuestionStats = (
+  testId: string,
+  tests: Test[],
+  results: Result[]
+): QuestionStats[] => {
+  const test = tests.find(t => t.id === testId);
+  if (!test || !test.questions || test.questions.length === 0) {
+    return [];
+  }
+
+  // Get all valid results (participated and not cancelled)
+  const validResults = results.filter(r => r.testId === testId && r.participated && !r.cancelled);
+  
+  if (validResults.length === 0) {
+    return [];
+  }
+
+  const questionStats: QuestionStats[] = test.questions.map((question, index) => {
+    let totalPoints = 0;
+    let fullScoreCount = 0;
+    let partialScoreCount = 0;
+    let zeroScoreCount = 0;
+    let attemptedBy = validResults.length; // Count all students who participated
+
+    validResults.forEach(result => {
+      let questionPoints = 0;
+      
+      // Check if student has questionResults for this question
+      if (result.questionResults && result.questionResults.length > 0) {
+        const questionResult = result.questionResults.find(qr => qr.questionId === question.id);
+        if (questionResult) {
+          questionPoints = questionResult.points;
+        }
+      }
+      
+      // Add points to total
+      totalPoints += questionPoints;
+
+      // Categorize the result
+      if (questionPoints === question.points) {
+        fullScoreCount++;
+      } else if (questionPoints > 0) {
+        partialScoreCount++;
+      } else {
+        zeroScoreCount++;
+      }
+    });
+
+    const averagePoints = attemptedBy > 0 ? totalPoints / attemptedBy : 0;
+    const successRate = attemptedBy > 0 ? (fullScoreCount / attemptedBy) * 100 : 0;
+    const partialSuccessRate = attemptedBy > 0 ? (partialScoreCount / attemptedBy) * 100 : 0;
+
+    return {
+      questionId: question.id,
+      questionText: question.text || `Въпрос ${index + 1}`,
+      maxPoints: question.points,
+      averagePoints,
+      successRate,
+      partialSuccessRate,
+      attemptedBy,
+      fullScoreCount,
+      partialScoreCount,
+      zeroScoreCount,
+    };
+  });
+
+  return questionStats;
 };
 
 /**
@@ -319,15 +432,15 @@ export const calculateGenderStats = (
   const maleStudents = classStudents.filter(s => s.gender === 'male');
   const femaleStudents = classStudents.filter(s => s.gender === 'female');
   
-  // Get results by gender (only participated students)
+  // Get results by gender (only participated and not cancelled students)
   const maleResults = testResults.filter(result => {
     const student = students.find(s => s.id === result.studentId);
-    return student && student.gender === 'male' && result.participated;
+    return student && student.gender === 'male' && result.participated && !result.cancelled;
   });
   
   const femaleResults = testResults.filter(result => {
     const student = students.find(s => s.id === result.studentId);
-    return student && student.gender === 'female' && result.participated;
+    return student && student.gender === 'female' && result.participated && !result.cancelled;
   });
   
   // Calculate male statistics

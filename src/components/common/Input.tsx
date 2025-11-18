@@ -7,6 +7,9 @@ interface InputProps {
   type?: InputType;
   value: string | number;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onClick?: (e: React.MouseEvent<HTMLInputElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   required?: boolean;
   min?: number;
@@ -14,6 +17,7 @@ interface InputProps {
   step?: number;
   error?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -21,6 +25,9 @@ export const Input: React.FC<InputProps> = ({
   type = 'text',
   value,
   onChange,
+  onFocus,
+  onClick,
+  onKeyDown,
   placeholder,
   required = false,
   min,
@@ -28,6 +35,7 @@ export const Input: React.FC<InputProps> = ({
   step,
   error,
   className = '',
+  disabled = false,
 }) => {
   return (
     <div className={`form-group ${className}`}>
@@ -39,13 +47,17 @@ export const Input: React.FC<InputProps> = ({
       )}
       <input
         type={type}
-        value={value}
+        value={typeof value === 'number' ? String(value) : (value || '')}
         onChange={onChange}
+        onFocus={onFocus}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         required={required}
         min={min}
         max={max}
         step={step}
+        disabled={disabled}
         className={error ? 'border-red-500' : ''}
       />
       {error && <p className="text-red-600 text-sm mt-1">{error}</p>}

@@ -3,10 +3,14 @@ import { ClassForm } from '../components/classes/ClassForm';
 import { ClassList } from '../components/classes/ClassList';
 import { StudentBulkForm } from '../components/classes/StudentBulkForm';
 import { StudentsModal } from '../components/classes/StudentsModal';
+import { Modal } from '../components/common/Modal';
+import { Button } from '../components/common/Button';
+import './ClassesPage.css';
 
 export const ClassesPage: React.FC = () => {
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [showClassFormModal, setShowClassFormModal] = useState(false);
   const [selectedClassName, setSelectedClassName] = useState('');
 
   const handleManageStudents = (className: string) => {
@@ -16,17 +20,23 @@ export const ClassesPage: React.FC = () => {
 
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Управление на класове</h2>
-      
-      <ClassForm />
+    <div className="classes-page-container">
+      <div className="classes-page-header">
+        <div className="classes-page-header-content">
+          <h2>Управление на класове</h2>
+          <p>Създаване и управление на класове и ученици</p>
+        </div>
+        <Button onClick={() => setShowClassFormModal(true)} className="btn-success">
+          + Създай нов клас
+        </Button>
+      </div>
       
       <ClassList onManageStudents={handleManageStudents} />
       
       {/* Bulk Student Form Modal */}
       {showBulkForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4">
+        <div className="classes-bulk-modal-overlay">
+          <div className="classes-bulk-modal-content">
             <StudentBulkForm 
               className={selectedClassName}
               onClose={() => setShowBulkForm(false)}
@@ -41,6 +51,15 @@ export const ClassesPage: React.FC = () => {
         onClose={() => setShowStudentsModal(false)}
         className={selectedClassName}
       />
+
+      {/* Create Class Modal */}
+      <Modal
+        isOpen={showClassFormModal}
+        onClose={() => setShowClassFormModal(false)}
+        title="Създай нов клас"
+      >
+        <ClassForm onSuccess={() => setShowClassFormModal(false)} />
+      </Modal>
     </div>
   );
 };

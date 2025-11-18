@@ -23,13 +23,17 @@ const classOptions = [
   { value: '12Б', label: '12Б' },
 ];
 
-export const ClassForm: React.FC = () => {
+interface ClassFormProps {
+  onSuccess?: () => void;
+}
+
+export const ClassForm: React.FC<ClassFormProps> = ({ onSuccess }) => {
   const { addClass, classes } = useAppContext();
   const [className, setClassName] = useState('');
   const [schoolYear, setSchoolYear] = useState('2024/2025');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -44,21 +48,28 @@ export const ClassForm: React.FC = () => {
       return;
     }
 
-    addClass({
-      name: className,
-      schoolYear: schoolYear,
-      createdDate: new Date().toISOString(),
-    });
+    try {
+      await addClass({
+        name: className,
+        schoolYear: schoolYear,
+        createdDate: new Date().toISOString(),
+      });
 
-    // Reset form
-    setClassName('');
-    setSchoolYear('2024/2025');
+      // Reset form
+      setClassName('');
+      setSchoolYear('2024/2025');
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Грешка при създаване на клас!');
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="card">
-      <h3 className="text-lg font-semibold mb-4">Създай нов клас</h3>
-      
+    <form onSubmit={handleSubmit}>
       {error && (
         <div className="alert alert-error">
           {error}
@@ -83,9 +94,11 @@ export const ClassForm: React.FC = () => {
           required
         />
         
-        <Button type="submit">
-          Създай клас
-        </Button>
+        <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <Button type="submit">
+            Създай клас
+          </Button>
+        </div>
       </div>
     </form>
   );

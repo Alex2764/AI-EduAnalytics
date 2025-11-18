@@ -10,6 +10,7 @@ interface ButtonProps {
   type?: ButtonType;
   disabled?: boolean;
   className?: string;
+  title?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -19,6 +20,7 @@ export const Button: React.FC<ButtonProps> = ({
   type = 'button',
   disabled = false,
   className = '',
+  title,
 }) => {
   const baseClasses = 'btn';
   
@@ -36,6 +38,7 @@ export const Button: React.FC<ButtonProps> = ({
       onClick={onClick}
       disabled={disabled}
       className={`${baseClasses} ${variantClasses[variant]} ${disabled ? disabledClasses : ''} ${className}`}
+      title={title}
     >
       {children}
     </button>

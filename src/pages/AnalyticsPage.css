@@ -1,0 +1,151 @@
+/* AnalyticsPage Styles */
+
+/* Page Container */
+.analytics-page-container {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Header Section */
+.analytics-header {
+  text-align: center;
+  max-width: 32rem;
+  color: black;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  border-radius: 1rem;
+  font-size: 20px;
+}
+
+.analytics-header h2 {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+/* .analytics-header p {
+
+} */
+
+/* Selection Form Card */
+.analytics-form-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(15px);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  margin: 0 auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-sizing: border-box;
+}
+
+.analytics-form-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 80px rgba(99, 241, 242, 0.15), inset 0 1px 0 rgba(255, 255, 255, 1);
+  border-color: rgba(99, 241, 242, 0.3);
+}
+
+.analytics-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Features Section */
+.analytics-features-section {
+  background: #f9fafb;
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.analytics-features-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.analytics-features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.analytics-feature-item {
+  padding: 0.75rem;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.analytics-feature-item span {
+  font-size: 0.875rem;
+  color: #1f2937;
+}
+
+/* Warning Message */
+.analytics-warning {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+/* Button Container */
+.analytics-button-container {
+  padding-top: 1rem;
+}
+
+.analytics-button-container .btn {
+  width: 100%;
+}
+
+/* Main Action Button */
+.analytics-main-button-container {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.analytics-main-button-container .btn {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
+
+/* Modal Form */
+.analytics-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.analytics-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .analytics-features-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .analytics-form-card {
+    padding: 1.5rem;
+  }
+}
+

@@ -26,12 +26,15 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
   const [errors, setErrors] = useState<string[]>([]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+  const [showBulkForm, setShowBulkForm] = useState(false);
 
   const classStudents = students
     .filter(s => s.class === className)
     .sort((a, b) => a.number - b.number);
 
-  const handleAddStudent = () => {
+  const handleAddStudent = async () => {
     setErrors([]);
     const { firstName, middleName, lastName, number } = formData;
 
@@ -46,30 +49,34 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
       return;
     }
 
-    if (editingStudent) {
-      // Update existing student
-      updateStudent(editingStudent.id, {
-        firstName: firstName.trim(),
-        middleName: middleName.trim(),
-        lastName: lastName.trim(),
-        number,
-        gender: formData.gender,
-      });
-    } else {
-      // Add new student
-      addStudent({
-        firstName: firstName.trim(),
-        middleName: middleName.trim(),
-        lastName: lastName.trim(),
-        class: className,
-        number,
-        gender: formData.gender,
-      });
-    }
+    try {
+      if (editingStudent) {
+        // Update existing student
+        await updateStudent(editingStudent.id, {
+          firstName: firstName.trim(),
+          middleName: middleName.trim(),
+          lastName: lastName.trim(),
+          number,
+          gender: formData.gender,
+        });
+      } else {
+        // Add new student
+        await addStudent({
+          firstName: firstName.trim(),
+          middleName: middleName.trim(),
+          lastName: lastName.trim(),
+          class: className,
+          number,
+          gender: formData.gender,
+        });
+      }
 
-    // Reset form
-    setFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
-    setEditingStudent(null);
+      // Reset form
+      setFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
+      setEditingStudent(null);
+    } catch (err: any) {
+      setErrors([err.message || 'Грешка при запазване на ученик!']);
+    }
   };
 
   const handleEditStudent = (student: Student) => {
@@ -84,12 +91,16 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
     setErrors([]);
   };
 
-  const handleDeleteStudent = (studentId: string) => {
+  const handleDeleteStudent = async (studentId: string) => {
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
     if (window.confirm(`Сигурни ли сте, че искате да изтриете ${student.firstName} ${student.lastName}?`)) {
-      deleteStudent(studentId);
+      try {
+        await deleteStudent(studentId);
+      } catch (err: any) {
+        alert(err.message || 'Грешка при изтриване на ученик!');
+      }
     }
   };
 
@@ -120,6 +131,99 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
     }
   }, [classStudents.length, editingStudent]);
 
+  const handleBulkAdd = async () => {
+    setBulkErrors([]);
+    const lines = bulkText.trim().split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      setBulkErrors(['Моля, въведете поне един ученик!']);
+      return;
+    }
+
+    const studentsToAdd: Array<Omit<Student, 'id'>> = [];
+    const validationErrors: string[] = [];
+
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      
+      // Pattern: "1. Име Презиме Фамилия" или "1 Име Презиме Фамилия"
+      const match = trimmedLine.match(/^(\d+)[\.\):\s]+(.+)$/);
+      
+      if (!match) {
+        validationErrors.push(`Ред ${index + 1}: Невалиден формат. Използвайте: "№. Име Презиме Фамилия"`);
+        return;
+      }
+
+      const number = parseInt(match[1]);
+      const nameParts = match[2].trim().split(/\s+/);
+
+      if (nameParts.length < 3) {
+        validationErrors.push(`Ред ${index + 1}: Моля въведете Име, Презиме и Фамилия`);
+        return;
+      }
+
+      // Check if number already exists
+      if (classStudents.some(s => s.number === number)) {
+        validationErrors.push(`Ред ${index + 1}: Ученик с номер ${number} вече съществува в класа!`);
+        return;
+      }
+
+      // Check for duplicate numbers in the input
+      if (studentsToAdd.some(s => s.number === number)) {
+        validationErrors.push(`Ред ${index + 1}: Дублиран номер ${number} във въведения текст!`);
+        return;
+      }
+
+      const firstName = nameParts[0];
+      const middleName = nameParts[1];
+      const lastName = nameParts.slice(2).join(' '); // Support for composite last names
+
+      const fieldErrors = validateStudentData(firstName, middleName, lastName);
+      if (fieldErrors.length > 0) {
+        validationErrors.push(`Ред ${index + 1}: ${fieldErrors.join(', ')}`);
+        return;
+      }
+
+      studentsToAdd.push({
+        firstName: firstName.trim(),
+        middleName: middleName.trim(),
+        lastName: lastName.trim(),
+        class: className,
+        number: number,
+        gender: 'male', // Default gender, can be changed later
+      });
+    });
+
+    if (validationErrors.length > 0) {
+      setBulkErrors(validationErrors);
+      return;
+    }
+
+    if (studentsToAdd.length === 0) {
+      setBulkErrors(['Не са намерени валидни ученици за добавяне!']);
+      return;
+    }
+
+    // Add all students
+    try {
+      // Use addMultipleStudents if available, otherwise add one by one
+      if (studentsToAdd.length > 0) {
+        // Check if we should use bulk add or individual adds
+        // For now, add one by one to handle errors better
+        for (const student of studentsToAdd) {
+          await addStudent(student);
+        }
+      }
+
+      // Clear the form and show success
+      setBulkText('');
+      setShowBulkForm(false);
+      alert(`Успешно добавени ${studentsToAdd.length} ученици!`);
+    } catch (err: any) {
+      setBulkErrors([err.message || 'Грешка при добавяне на ученици!']);
+    }
+  };
+
 
   return (
     <>
@@ -143,7 +247,88 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
           </div>
         </div>
 
+        {/* Toggle between single and bulk add */}
+        <div className="mb-4 flex gap-2">
+          <Button
+            onClick={() => setShowBulkForm(false)}
+            variant={!showBulkForm ? 'primary' : 'secondary'}
+            className="flex-1"
+          >
+            Единичен ученик
+          </Button>
+          <Button
+            onClick={() => setShowBulkForm(true)}
+            variant={showBulkForm ? 'primary' : 'secondary'}
+            className="flex-1"
+          >
+            Списък по номера
+          </Button>
+        </div>
+
+        {/* Bulk Add Form */}
+        {showBulkForm && (
+          <div className="student-form-section mb-6">
+            <h3 className="section-title">
+              Масово добавяне на ученици по номера
+            </h3>
+            
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+              <h4 className="font-semibold text-blue-900 mb-2">Как да използвам:</h4>
+              <p className="text-sm text-blue-800 mb-2">
+                Въведете учениците по следния формат (един на ред):
+              </p>
+              <div className="bg-white p-3 rounded border border-blue-200 font-mono text-sm">
+                <div>1. Иван Петров Иванов</div>
+                <div>2. Мария Георгиева Димитрова</div>
+                <div>3. Петър Илиев Стоянов</div>
+              </div>
+              <p className="text-xs text-blue-700 mt-2">
+                * Поддържа формати: "1. Име", "1) Име", "1: Име" или "1 Име"
+              </p>
+            </div>
+
+            {bulkErrors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <h4 className="text-red-800 font-medium mb-2">Грешки при валидацията:</h4>
+                <ul className="text-red-700 text-sm space-y-1 max-h-40 overflow-y-auto">
+                  {bulkErrors.map((error, index) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Въведете списък с ученици:
+              </label>
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder="1. Иван Петров Иванов&#10;2. Мария Георгиева Димитрова&#10;3. Петър Илиев Стоянов"
+                className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setBulkText('');
+                  setBulkErrors([]);
+                }}
+              >
+                Изчисти
+              </Button>
+              <Button onClick={handleBulkAdd}>
+                Добави всички ученици
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Add/Edit Student Form */}
+        {!showBulkForm && (
         <div className="student-form-section">
           <h3 className="section-title">
             {editingStudent ? 'Редактиране на ученик' : 'Добавяне на нов ученик'}
@@ -191,12 +376,15 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
             <div className="form-field">
               <label className="field-label">№ в клас *</label>
               <Input
-                type="number"
-                value={formData.number}
-                onChange={(e) => setFormData(prev => ({ ...prev, number: parseInt(e.target.value) || 1 }))}
+                type="text"
+                value={String(formData.number || '')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const num = value === '' ? 1 : parseInt(value) || 1;
+                  setFormData(prev => ({ ...prev, number: num }));
+                }}
+                onFocus={(e) => e.target.select()}
                 placeholder="Номер"
-                min={1}
-                max={50}
                 required
                 className="student-input number-input"
               />
@@ -226,6 +414,7 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
             )}
           </div>
         </div>
+        )}
 
         {/* Students List */}
         <div className="students-list-section">
@@ -236,7 +425,7 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
               <table className="students-table">
                 <thead>
                   <tr>
-                    <th className="col-number">№</th>
+                    <th className="col-number">№ в клас</th>
                     <th className="col-name">Име</th>
                     <th className="col-middle">Презире</th>
                     <th className="col-last">Фамилия</th>
@@ -272,14 +461,14 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
                         <div className="action-buttons">
                           <Button
                             onClick={() => handleViewProfile(student)}
-                            className="profile-btn bg-purple-600 hover:bg-purple-700"
+                            className="btn-primary-action profile-btn"
                           >
                             Профил
                           </Button>
                           <Button
                             onClick={() => handleEditStudent(student)}
                             variant="secondary"
-                            className="edit-btn"
+                            className="btn-warning edit-btn"
                           >
                             Редактирай
                           </Button>

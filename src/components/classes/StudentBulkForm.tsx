@@ -41,10 +41,6 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
     setStudentData(initialData);
   }, [studentCount, className, students.length]);
 
-  const handleStudentCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newCount = parseInt(e.target.value) || 25;
-    setStudentCount(Math.min(Math.max(newCount, 1), 35));
-  };
 
   const handleStudentDataChange = (index: number, field: keyof StudentFormData, value: string | GenderType) => {
     const newData = [...studentData];
@@ -52,7 +48,7 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
     setStudentData(newData);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setErrors([]);
     const newStudents: Omit<Student, 'id'>[] = [];
     const validationErrors: string[] = [];
@@ -90,8 +86,12 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
       return;
     }
 
-    addMultipleStudents(newStudents);
-    onClose();
+    try {
+      await addMultipleStudents(newStudents);
+      onClose();
+    } catch (err: any) {
+      setErrors([err.message || 'Грешка при добавяне на ученици!']);
+    }
   };
 
   return (
@@ -117,11 +117,15 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
       <div className="flex items-center space-x-4">
         <Input
           label="Брой ученици"
-          type="number"
-          value={studentCount}
-          onChange={handleStudentCountChange}
-          min={1}
-          max={35}
+          type="text"
+          value={String(studentCount || '')}
+          onChange={(e) => {
+            const value = e.target.value;
+            const newCount = value === '' ? 25 : parseInt(value) || 25;
+            setStudentCount(Math.min(Math.max(newCount, 1), 35));
+          }}
+          onFocus={(e) => e.target.select()}
+          placeholder="25"
           className="w-32"
         />
         <Button
@@ -146,7 +150,7 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
 
       <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
         <div className="grid grid-cols-5 gap-4 mb-4 font-medium text-gray-700 border-b pb-2">
-          <div>№</div>
+          <div>№ в клас</div>
           <div>Име</div>
           <div>Презире</div>
           <div>Фамилия</div>

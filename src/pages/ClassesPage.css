@@ -1,0 +1,68 @@
+/* ClassesPage Styles */
+
+/* Page Container */
+.classes-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Page Header */
+.classes-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.classes-page-header-content h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.classes-page-header-content p {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0.25rem 0 0 0;
+}
+
+/* Bulk Form Modal Overlay */
+.classes-bulk-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.classes-bulk-modal-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  max-width: 56rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .classes-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .classes-bulk-modal-content {
+    margin: 0.5rem;
+    padding: 1rem;
+  }
+}
+

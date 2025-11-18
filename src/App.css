@@ -40,3 +40,490 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Question Statistics Section */
+.question-stats-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #8b5cf6;
+}
+
+.question-stats-section .section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.question-stats-section .section-subtitle {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.stats-table-container {
+  background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+  border-radius: 1rem;
+  border: 2px solid #e5e7eb;
+  overflow: hidden;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stats-table-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.25rem;
+  text-align: center;
+  font-weight: 700;
+  color: white;
+  border-bottom: 3px solid #5a67d8;
+  font-size: 0.925rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.stats-row {
+  border-bottom: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.stats-row:hover {
+  transform: scale(1.01);
+  z-index: 1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.stats-row.excellent {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.stats-row.excellent:hover {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+}
+
+.stats-row.good {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.stats-row.good:hover {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.stats-row.average {
+  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+}
+
+.stats-row.average:hover {
+  background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.2);
+}
+
+.stats-row.poor {
+  background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+}
+
+.stats-row.poor:hover {
+  background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);
+}
+
+.stats-cell {
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.question-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.question-icon {
+  font-size: 1.75rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.question-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.percentage-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.percentage-value {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stats-row.excellent .percentage-value {
+  color: #059669;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stats-row.good .percentage-value {
+  color: #d97706;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stats-row.average .percentage-value {
+  color: #ea580c;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stats-row.poor .percentage-value {
+  color: #dc2626;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.percentage-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Overall Analysis Section */
+.overall-analysis-section {
+  margin-top: 2.5rem;
+  padding: 2rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #10b981;
+}
+
+.overall-analysis-section .section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.analysis-table-container {
+  background: white;
+  border-radius: 1.25rem;
+  border: 3px solid #8b5cf6;
+  overflow: hidden;
+  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.15);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.analysis-table-container:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(139, 92, 246, 0.25);
+}
+
+.analysis-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.analysis-header {
+  padding: 1.75rem;
+  text-align: center;
+  font-weight: 700;
+  border-right: 3px solid #ddd6fe;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+}
+
+.analysis-header:last-child {
+  border-right: none;
+}
+
+.analysis-header.best {
+  background: linear-gradient(135deg, #6ee7b7 0%, #34d399 100%);
+  color: #064e3b;
+  box-shadow: inset 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.analysis-header.worst {
+  background: linear-gradient(135deg, #fca5a5 0%, #f87171 100%);
+  color: #7f1d1d;
+  box-shadow: inset 0 2px 8px rgba(220, 38, 38, 0.2);
+}
+
+.analysis-header.average {
+  background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+  color: #4c1d95;
+  box-shadow: inset 0 2px 8px rgba(139, 92, 246, 0.2);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.header-icon {
+  font-size: 1.75rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.header-text {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.analysis-cell {
+  padding: 2.5rem 2rem;
+  text-align: center;
+  vertical-align: middle;
+  border-right: 3px solid #ddd6fe;
+  transition: all 0.3s ease;
+}
+
+.analysis-cell:last-child {
+  border-right: none;
+}
+
+.analysis-cell.best {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.analysis-cell.best:hover {
+  background: linear-gradient(135deg, #a7f3d0 0%, #6ee7b7 100%);
+}
+
+.analysis-cell.worst {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+.analysis-cell.worst:hover {
+  background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+}
+
+.analysis-cell.average {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+}
+
+.analysis-cell.average:hover {
+  background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
+}
+
+
+.analysis-title {
+  background: white;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 3px solid;
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+  max-width: 220px;
+  word-wrap: break-word;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.analysis-title:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.analysis-cell.best .analysis-title {
+  color: #065f46;
+  border-color: #34d399;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.analysis-cell.worst .analysis-title {
+  color: #991b1b;
+  border-color: #f87171;
+  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+}
+
+.analysis-cell.average .analysis-title {
+  color: #5b21b6;
+  border-color: #a78bfa;
+  background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
+}
+
+.analysis-percentage {
+  font-size: 4.5rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.analysis-cell.best .analysis-percentage {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.analysis-cell.worst .analysis-percentage {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.analysis-cell.average .analysis-percentage {
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.analysis-label {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 0.625rem 1.25rem;
+  border-radius: 9999px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.analysis-label:hover {
+  background: rgba(0, 0, 0, 0.12);
+  transform: scale(1.05);
+}
+
+/* Responsive Styles for Question Statistics and Analysis */
+@media (max-width: 768px) {
+  .question-stats-section {
+    padding: 1.5rem;
+  }
+
+  .question-stats-section .section-title {
+    font-size: 1.5rem;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .stats-header {
+    padding: 1rem;
+    font-size: 0.825rem;
+  }
+
+  .stats-cell {
+    padding: 1rem;
+  }
+
+  .question-icon {
+    font-size: 1.5rem;
+  }
+
+  .question-text {
+    font-size: 1rem;
+  }
+
+  .percentage-value {
+    font-size: 2.25rem;
+  }
+
+  .percentage-label {
+    font-size: 0.75rem;
+  }
+
+  .overall-analysis-section {
+    padding: 1.5rem;
+  }
+
+  .overall-analysis-section .section-title {
+    font-size: 1.5rem;
+  }
+
+  .analysis-table {
+    display: block;
+  }
+
+  .analysis-table thead {
+    display: none;
+  }
+
+  .analysis-table tbody,
+  .analysis-table tr,
+  .analysis-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .analysis-cell {
+    padding: 2rem 1.5rem;
+    border-right: none;
+    border-bottom: 3px solid #ddd6fe;
+  }
+
+  .analysis-cell:last-child {
+    border-bottom: none;
+  }
+
+  .analysis-title {
+    max-width: 100%;
+    font-size: 1rem;
+  }
+
+  .analysis-percentage {
+    font-size: 3.5rem;
+  }
+
+  .analysis-label {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .header-icon {
+    font-size: 1.5rem;
+  }
+
+  .header-text {
+    font-size: 0.875rem;
+  }
+}

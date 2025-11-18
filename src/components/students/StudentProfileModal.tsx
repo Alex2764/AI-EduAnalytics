@@ -48,6 +48,24 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     [student.id, student.class, students, tests, results]
   );
 
+  // Get cancelled tests
+  const cancelledTests = useMemo(
+    () => results
+      .filter(r => r.studentId === student.id && r.cancelled)
+      .map(result => {
+        const test = tests.find(t => t.id === result.testId);
+        return test ? {
+          testId: test.id,
+          testName: test.name,
+          testType: test.type,
+          testDate: test.date,
+          cancelReason: result.cancelReason || 'Анулиран',
+        } : null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null),
+    [student.id, tests, results]
+  );
+
   const fullName = `${student.firstName} ${student.middleName} ${student.lastName}`;
 
   return (
@@ -294,7 +312,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        №
+                        № в клас
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                         Име на тест
@@ -351,6 +369,57 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </table>
               </div>
             </div>
+
+            {/* Cancelled Tests Section */}
+            {cancelledTests.length > 0 && (
+              <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-3xl">🚫</span>
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-900">Анулирани тестове</h3>
+                    <p className="text-sm text-red-700">
+                      Тези резултати не се включват в статистиката
+                    </p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white border border-red-200 rounded-lg">
+                    <thead className="bg-red-100">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-red-800 uppercase tracking-wider">
+                          Име на тест
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-red-800 uppercase tracking-wider">
+                          Тип
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-red-800 uppercase tracking-wider">
+                          Дата
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-red-800 uppercase tracking-wider">
+                          Причина
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-red-200">
+                      {cancelledTests.map((test) => (
+                        <tr key={test.testId} className="hover:bg-red-50">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            {test.testName}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">{test.testType}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {formatDate(test.testDate)}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-red-700">
+                            📋 {test.cancelReason}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
