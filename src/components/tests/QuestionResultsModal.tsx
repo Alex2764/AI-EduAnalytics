@@ -21,38 +21,34 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
   initialQuestionResults,
   onSave,
 }) => {
-  const [questionSolved, setQuestionSolved] = useState<{ [questionId: string]: boolean }>({});
+  // Changed from boolean to number - stores actual points for each question
+  const [questionPoints, setQuestionPoints] = useState<{ [questionId: string]: number }>({});
   const [totalPoints, setTotalPoints] = useState(0);
   const [calculatedGrade, setCalculatedGrade] = useState('');
   const [calculatedPercentage, setCalculatedPercentage] = useState(0);
 
-  // Initialize with existing data
+  // Initialize with existing data - load actual points, not boolean
   useEffect(() => {
     if (!isOpen) return;
 
-    const initialSolved: { [questionId: string]: boolean } = {};
+    const initialPoints: { [questionId: string]: number } = {};
     
     if (initialQuestionResults && initialQuestionResults.length > 0) {
       initialQuestionResults.forEach(qr => {
-        const question = test.questions.find(q => q.id === qr.questionId);
-        // Consider solved if points equal max points for that question
-        initialSolved[qr.questionId] = question ? qr.points === question.points : false;
+        // Load actual points from saved data (supports partial points)
+        initialPoints[qr.questionId] = qr.points || 0;
       });
     }
 
-    setQuestionSolved(initialSolved);
-  }, [isOpen, initialQuestionResults, test.questions]);
+    setQuestionPoints(initialPoints);
+  }, [isOpen, initialQuestionResults]);
 
-  // Calculate total whenever question solved status changes
+  // Calculate total whenever question points change
   useEffect(() => {
     let total = 0;
-    Object.entries(questionSolved).forEach(([questionId, solved]) => {
-      if (solved) {
-        const question = test.questions.find(q => q.id === questionId);
-        if (question) {
-          total += question.points;
-        }
-      }
+    Object.values(questionPoints).forEach((points) => {
+      // Sum up actual points (not boolean anymore)
+      total += points || 0;
     });
 
     setTotalPoints(total);
@@ -66,41 +62,66 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
       setCalculatedGrade('');
       setCalculatedPercentage(0);
     }
-  }, [questionSolved, test.maxPoints, test.gradeScale, test.questions]);
+  }, [questionPoints, test.maxPoints, test.gradeScale]);
 
+  // Toggle handler for 1-point questions (all or nothing)
   const handleQuestionToggle = (questionId: string) => {
-    setQuestionSolved(prev => ({
+    const question = test.questions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    setQuestionPoints(prev => {
+      const currentPoints = prev[questionId] || 0;
+      // Toggle: if has points, set to 0; if 0, set to max points
+      return {
+        ...prev,
+        [questionId]: currentPoints > 0 ? 0 : question.points,
+      };
+    });
+  };
+
+  // Handler for multi-point questions - update points value
+  const handlePointsChange = (questionId: string, value: string) => {
+    const question = test.questions.find(q => q.id === questionId);
+    if (!question) return;
+
+    const numValue = parseFloat(value);
+    const maxPoints = question.points;
+
+    // Validate: must be between 0 and max points
+    let points = 0;
+    if (!isNaN(numValue) && value !== '') {
+      points = Math.max(0, Math.min(numValue, maxPoints));
+    }
+
+    setQuestionPoints(prev => ({
       ...prev,
-      [questionId]: !prev[questionId],
+      [questionId]: points,
     }));
   };
 
   const handleSave = () => {
-    const questionResults: QuestionResult[] = Object.entries(questionSolved)
-      .map(([questionId, solved]) => {
-        const question = test.questions.find(q => q.id === questionId);
-        const points = solved && question ? question.points : 0;
-        return {
-          questionId,
-          points,
-        };
-      })
-      .filter(qr => qr.points > 0 || questionSolved[qr.questionId] === false); // Include all marked questions
+    // Convert questionPoints to QuestionResult format
+    const questionResults: QuestionResult[] = test.questions
+      .map(question => ({
+        questionId: question.id,
+        points: questionPoints[question.id] || 0,
+      }))
+      .filter(qr => qr.points > 0); // Only include questions with points
 
     onSave(questionResults, totalPoints, calculatedGrade, calculatedPercentage);
     onClose();
   };
 
   const handleClearAll = () => {
-    setQuestionSolved({});
+    setQuestionPoints({});
   };
 
   const handleMarkAll = () => {
-    const allSolved: { [questionId: string]: boolean } = {};
+    const allPoints: { [questionId: string]: number } = {};
     test.questions.forEach(q => {
-      allSolved[q.id] = true;
+      allPoints[q.id] = q.points; // Give full points to all
     });
-    setQuestionSolved(allSolved);
+    setQuestionPoints(allPoints);
   };
 
   const getGradeColorClass = (grade: string) => {
@@ -169,22 +190,25 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
 
             <div className="space-y-2">
               {test.questions.map((question, index) => {
-                const isSolved = questionSolved[question.id] || false;
+                const earnedPoints = questionPoints[question.id] || 0;
+                const isOnePoint = question.points === 1;
+                const hasPoints = earnedPoints > 0;
+                
                 return (
                   <div 
                     key={question.id} 
-                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                      isSolved 
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      hasPoints 
                         ? 'bg-green-50 border-green-400 shadow-md' 
                         : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => handleQuestionToggle(question.id)}
+                    } ${isOnePoint ? 'cursor-pointer' : ''}`}
+                    onClick={isOnePoint ? () => handleQuestionToggle(question.id) : undefined}
                   >
                     <div className="flex items-start gap-4">
                       <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
-                        isSolved ? 'bg-green-500' : 'bg-blue-100'
+                        hasPoints ? 'bg-green-500' : 'bg-blue-100'
                       }`}>
-                        {isSolved ? (
+                        {hasPoints ? (
                           <span className="text-2xl">✓</span>
                         ) : (
                           <span className="text-lg font-bold text-blue-700">{index + 1}</span>
@@ -192,31 +216,67 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
                       </div>
                       <div className="flex-1">
                         <div className="flex items-start justify-between mb-2">
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">
                               {question.text || `Въпрос ${index + 1}`}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {question.points} {question.points === 1 ? 'точка' : 'точки'}
+                              Макс: {question.points} {question.points === 1 ? 'точка' : 'точки'}
                             </p>
                           </div>
-                          <button
-                            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                              isSolved
-                                ? 'bg-green-500 text-white hover:bg-green-600'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleQuestionToggle(question.id);
-                            }}
-                          >
-                            {isSolved ? '✅ Решен' : '❌ Нерешен'}
-                          </button>
+                          
+                          {/* For 1-point questions: Show toggle button */}
+                          {isOnePoint && (
+                            <button
+                              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                                hasPoints
+                                  ? 'bg-green-500 text-white hover:bg-green-600'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuestionToggle(question.id);
+                              }}
+                            >
+                              {hasPoints ? '✅ Решен' : '❌ Нерешен'}
+                            </button>
+                          )}
+                          
+                          {/* For multi-point questions: Show input field */}
+                          {!isOnePoint && (
+                            <div className="flex items-center gap-2">
+                              <div className="text-right">
+                                <label className="text-xs text-gray-500 block mb-1">
+                                  Точки
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={question.points}
+                                  step="0.5"
+                                  value={earnedPoints || ''}
+                                  onChange={(e) => handlePointsChange(question.id, e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onFocus={(e) => e.stopPropagation()}
+                                  className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="0"
+                                />
+                                <span className="text-xs text-gray-500 ml-1">
+                                  / {question.points}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {isSolved && (
-                          <div className="flex items-center gap-2 text-sm text-green-700">
-                            <span className="font-semibold">+{question.points} точки</span>
+                        
+                        {/* Show earned points summary */}
+                        {hasPoints && (
+                          <div className="flex items-center gap-2 text-sm text-green-700 mt-2">
+                            <span className="font-semibold">
+                              {earnedPoints === question.points 
+                                ? `+${earnedPoints} точки (пълно)` 
+                                : `+${earnedPoints} от ${question.points} точки`}
+                            </span>
                           </div>
                         )}
                       </div>
