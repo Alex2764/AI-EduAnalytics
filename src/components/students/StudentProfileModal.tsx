@@ -79,17 +79,17 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <div className="flex gap-4 text-sm text-gray-600">
                 <span className="font-medium">Клас: <span className="text-blue-700">{student.class}</span></span>
                 <span className="font-medium">№ в клас: <span className="text-blue-700">{student.number}</span></span>
-                <span className="font-medium">Пол: <span className="text-blue-700">{student.gender === 'male' ? '👨 Момче' : '👩 Момиче'}</span></span>
+                <span className="font-medium">Пол: <span className="text-blue-700">{student.gender === 'male' ? 'Момче' : 'Момиче'}</span></span>
               </div>
             </div>
-            <div className="text-6xl opacity-80">{student.gender === 'male' ? '👨' : '👩'}</div>
+            <div className="text-6xl opacity-80"></div>
           </div>
         </div>
 
         {/* Check if student has any results */}
         {studentStats.totalTests === 0 ? (
           <div className="bg-yellow-50 p-8 rounded-lg text-center border border-yellow-200">
-            <div className="text-5xl mb-4">📝</div>
+            <div className="text-5xl mb-4"></div>
             <h3 className="text-lg font-semibold text-yellow-800 mb-2">
               Няма данни за този ученик
             </h3>
@@ -106,26 +106,26 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <StudentStatsCard
                   title="Написани тестове"
                   value={studentStats.totalTests}
-                  icon="📝"
+                  icon=""
                   color="blue"
                 />
                 <StudentStatsCard
                   title="Среден успех"
                   value={studentStats.averageGrade.toFixed(2)}
                   subtitle={`${studentStats.averagePercentage.toFixed(1)}%`}
-                  icon="📊"
+                  icon=""
                   color="purple"
                 />
                 <StudentStatsCard
                   title="Най-висока оценка"
                   value={studentStats.highestGrade.toFixed(2)}
-                  icon="🏆"
+                  icon=""
                   color="green"
                 />
                 <StudentStatsCard
                   title="Най-ниска оценка"
                   value={studentStats.lowestGrade.toFixed(2)}
-                  icon="📉"
+                  icon=""
                   color="orange"
                 />
               </div>
@@ -149,7 +149,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
 
                 <div className="bg-blue-100 p-4 rounded-lg text-center border-l-4 border-blue-500">
-                  <div className="text-2xl mb-1">⭐</div>
+                  <div className="text-2xl mb-1"></div>
                   <h4 className="font-semibold text-blue-800 text-sm mb-1">Мн. добър</h4>
                   <p className="text-3xl font-bold text-blue-800">
                     {studentStats.gradeDistribution.veryGood}
@@ -162,7 +162,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
 
                 <div className="bg-yellow-100 p-4 rounded-lg text-center border-l-4 border-yellow-500">
-                  <div className="text-2xl mb-1">👍</div>
+                  <div className="text-2xl mb-1"></div>
                   <h4 className="font-semibold text-yellow-800 text-sm mb-1">Добър</h4>
                   <p className="text-3xl font-bold text-yellow-800">
                     {studentStats.gradeDistribution.good}
@@ -175,7 +175,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
 
                 <div className="bg-orange-100 p-4 rounded-lg text-center border-l-4 border-orange-500">
-                  <div className="text-2xl mb-1">📌</div>
+                  <div className="text-2xl mb-1"></div>
                   <h4 className="font-semibold text-orange-800 text-sm mb-1">Среден</h4>
                   <p className="text-3xl font-bold text-orange-800">
                     {studentStats.gradeDistribution.average}
@@ -188,7 +188,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
 
                 <div className="bg-red-100 p-4 rounded-lg text-center border-l-4 border-red-500">
-                  <div className="text-2xl mb-1">⚠️</div>
+                  <div className="text-2xl mb-1"></div>
                   <h4 className="font-semibold text-red-800 text-sm mb-1">Слаб</h4>
                   <p className="text-3xl font-bold text-red-800">
                     {studentStats.gradeDistribution.poor}
@@ -411,7 +411,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                             {formatDate(test.testDate)}
                           </td>
                           <td className="px-6 py-4 text-sm font-medium text-red-700">
-                            📋 {test.cancelReason}
+                            {test.cancelReason}
                           </td>
                         </tr>
                       ))}

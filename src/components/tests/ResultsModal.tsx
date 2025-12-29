@@ -377,7 +377,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ isOpen, onClose, tes
                         variant={result.participated ? "primary" : "danger"}
                         className={`participation-btn ${result.participated ? 'participated' : 'not-participated'}`}
                       >
-                        {result.participated ? '✅ Участва' : '❌ НЕ участва'}
+                        {result.participated ? 'Участва' : 'НЕ участва'}
                       </Button>
                     </td>
                     <td className="col-status">
@@ -387,7 +387,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ isOpen, onClose, tes
                           className={`text-xs py-1 px-2 rounded ${result.cancelled ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
                           title={result.cancelReason || 'Анулиране на теста'}
                         >
-                          {result.cancelled ? '🚫 АНУЛИРАН' : '⚠️ Анулирай'}
+                          {result.cancelled ? 'АНУЛИРАН' : 'Анулирай'}
                         </button>
                       )}
                       {result.cancelled && result.cancelReason && (
@@ -435,7 +435,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ isOpen, onClose, tes
                           className="text-xs py-1 px-2"
                           disabled={!result.participated || result.cancelled}
                         >
-                          📝 По въпроси
+                          По въпроси
                         </Button>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>

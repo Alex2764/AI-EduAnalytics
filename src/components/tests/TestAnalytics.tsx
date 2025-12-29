@@ -85,7 +85,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
 
           {/* No Participation Message */}
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">📝</div>
+            <div className="text-6xl mb-4"></div>
             <h3 className="text-xl font-semibold text-gray-800 mb-2">
               Никой ученик не е участвал в този тест
             </h3>
@@ -116,7 +116,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
                           {student.firstName} {student.middleName} {student.lastName}
                         </div>
                         <div className="student-gender">
-                          {student.gender === 'male' ? '👨 Момче' : '👩 Момиче'}
+                          {student.gender === 'male' ? 'Момче' : 'Момиче'}
                         </div>
                       </div>
                     </div>
@@ -216,7 +216,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
         {/* Key Metrics Dashboard */}
         <div className="metrics-dashboard">
           <div className="metric-card primary">
-            <div className="metric-icon">👥</div>
+            <div className="metric-icon"></div>
             <div className="metric-content">
               <div className="metric-value">{totalStudents}</div>
               <div className="metric-label">Ученици</div>
@@ -224,7 +224,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
           </div>
           
           <div className="metric-card secondary">
-            <div className="metric-icon">📊</div>
+            <div className="metric-icon"></div>
             <div className="metric-content">
               <div className="metric-value">{totalResults}</div>
               <div className="metric-label">Резултати</div>
@@ -232,7 +232,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
           </div>
           
           <div className="metric-card success">
-            <div className="metric-icon">⭐</div>
+            <div className="metric-icon"></div>
             <div className="metric-content">
               <div className="metric-value">{avgGrade}</div>
               <div className="metric-label">Среден успех</div>
@@ -240,7 +240,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
           </div>
           
           <div className="metric-card warning">
-            <div className="metric-icon">🎯</div>
+            <div className="metric-icon"></div>
             <div className="metric-content">
               <div className="metric-value">{goodGradesPercentage}%</div>
               <div className="metric-label">Добри (5-6)</div>
@@ -272,7 +272,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
           <h3 className="section-title">Статистика по пол</h3>
           <div className="gender-grid">
             <div className="gender-card male">
-              <div className="gender-icon">👨</div>
+              <div className="gender-icon"></div>
               <div className="gender-content">
                 <h4 className="gender-title">Момчета</h4>
                 <div className="gender-stats">
@@ -301,7 +301,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
             </div>
             
             <div className="gender-card female">
-              <div className="gender-icon">👩</div>
+              <div className="gender-icon"></div>
               <div className="gender-content">
                 <h4 className="gender-title">Момичета</h4>
                 <div className="gender-stats">
@@ -414,7 +414,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
         {/* Question Statistics Section */}
         {questionStats.length > 0 && (
           <div className="question-stats-section">
-            <h3 className="section-title">📊 Статистика по въпроси</h3>
+            <h3 className="section-title">Статистика по въпроси</h3>
             <p className="section-subtitle">Детайлен анализ на успеваемостта по всеки въпрос</p>
             
             <div className="stats-grid-container">
@@ -432,9 +432,9 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
                     <div key={qStat.questionId} className={getCardClass(successPercentage)}>
                       <div className="question-info">
                         <span className="question-icon">
-                          {successPercentage >= 80 ? '✅' : 
-                           successPercentage >= 60 ? '⚠️' : 
-                           successPercentage >= 40 ? '🔶' : '❌'}
+                          {successPercentage >= 80 ? '' : 
+                           successPercentage >= 60 ? '' : 
+                           successPercentage >= 40 ? '' : ''}
                         </span>
                         <span className="question-text">Задача {index + 1}</span>
                       </div>
@@ -462,7 +462,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
                 </span>
               </div>
               <p className="text-sm text-red-600 mb-4">
-                ⚠️ Тези резултати не се включват в статистиката и средния успех на класа
+                Тези резултати не се включват в статистиката и средния успех на класа
               </p>
               <div className="students-grid">
                 {cancelledStudents.map(({ student, reason }) => (
@@ -476,7 +476,7 @@ export const TestAnalytics: React.FC<TestAnalyticsProps> = ({ isOpen, onClose, t
                         {student.gender === 'male' ? '👨 Момче' : '👩 Момиче'}
                       </div>
                       <div className="mt-2 text-xs text-red-700 font-medium">
-                        📋 Причина: {reason}
+                        Причина: {reason}
                       </div>
                     </div>
                   </div>

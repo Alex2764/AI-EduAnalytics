@@ -164,7 +164,7 @@ export const EditGradeScaleModal: React.FC<EditGradeScaleModalProps> = ({ isOpen
           
           {/* Example with specific points */}
           <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
-            <h5 className="font-semibold text-blue-900 mb-2">📝 Примери за изчисляване:</h5>
+            <h5 className="font-semibold text-blue-900 mb-2">Примери за изчисляване:</h5>
             <div className="text-sm text-blue-800 space-y-1">
               <div>• {typeof gradeScale.grade2 === 'string' ? parseFloat(gradeScale.grade2) || 0 : gradeScale.grade2} точки = <strong>Оценка {getGradeForPoints(typeof gradeScale.grade2 === 'string' ? parseFloat(gradeScale.grade2) || 0 : gradeScale.grade2, gradeScale)}</strong> (минимум за 2)</div>
               <div>• {typeof gradeScale.grade3 === 'string' ? parseFloat(gradeScale.grade3) || 0 : gradeScale.grade3} точки = <strong>Оценка {getGradeForPoints(typeof gradeScale.grade3 === 'string' ? parseFloat(gradeScale.grade3) || 0 : gradeScale.grade3, gradeScale)}</strong> (минимум за 3)</div>
@@ -174,7 +174,7 @@ export const EditGradeScaleModal: React.FC<EditGradeScaleModalProps> = ({ isOpen
             </div>
             
             <div className="mt-3 pt-3 border-t border-blue-300">
-              <h6 className="font-semibold text-blue-900 mb-1">🔍 Тестови примери:</h6>
+              <h6 className="font-semibold text-blue-900 mb-1">Тестови примери:</h6>
               <div className="text-sm text-blue-800 space-y-1">
                 <div>• 8 точки = <strong>Оценка {getGradeForPoints(8, gradeScale)}</strong></div>
                 <div>• 15 точки = <strong>Оценка {getGradeForPoints(15, gradeScale)}</strong></div>

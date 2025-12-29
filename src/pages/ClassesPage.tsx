@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ClassForm } from '../components/classes/ClassForm';
 import { ClassList } from '../components/classes/ClassList';
 import { StudentBulkForm } from '../components/classes/StudentBulkForm';
@@ -17,6 +17,20 @@ export const ClassesPage: React.FC = () => {
     setSelectedClassName(className);
     setShowStudentsModal(true);
   };
+
+  // Hide footer when Create Class Modal is open
+  useEffect(() => {
+    if (showClassFormModal) {
+      document.body.classList.add('class-form-modal-open');
+    } else {
+      document.body.classList.remove('class-form-modal-open');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('class-form-modal-open');
+    };
+  }, [showClassFormModal]);
 
 
   return (

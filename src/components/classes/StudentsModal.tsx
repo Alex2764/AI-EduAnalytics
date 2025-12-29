@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
@@ -29,6 +29,15 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
   const [bulkText, setBulkText] = useState('');
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
   const [showBulkForm, setShowBulkForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    number: 1,
+    gender: 'male' as GenderType,
+  });
+  const [editErrors, setEditErrors] = useState<string[]>([]);
 
   const classStudents = students
     .filter(s => s.class === className)
@@ -44,51 +53,76 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
       return;
     }
 
-    if (classStudents.some(s => s.number === number && s.id !== editingStudent?.id)) {
+    if (classStudents.some(s => s.number === number)) {
       setErrors(['Ученик с този номер вече съществува в класа!']);
       return;
     }
 
     try {
-      if (editingStudent) {
-        // Update existing student
-        await updateStudent(editingStudent.id, {
-          firstName: firstName.trim(),
-          middleName: middleName.trim(),
-          lastName: lastName.trim(),
-          number,
-          gender: formData.gender,
-        });
-      } else {
-        // Add new student
-        await addStudent({
-          firstName: firstName.trim(),
-          middleName: middleName.trim(),
-          lastName: lastName.trim(),
-          class: className,
-          number,
-          gender: formData.gender,
-        });
-      }
+      // Add new student
+      await addStudent({
+        firstName: firstName.trim(),
+        middleName: middleName.trim(),
+        lastName: lastName.trim(),
+        class: className,
+        number,
+        gender: formData.gender,
+      });
 
       // Reset form
       setFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
-      setEditingStudent(null);
     } catch (err: any) {
       setErrors([err.message || 'Грешка при запазване на ученик!']);
     }
   };
 
+  const handleSaveEdit = async () => {
+    if (!editingStudent) return;
+    
+    setEditErrors([]);
+    const { firstName, middleName, lastName, number } = editFormData;
+
+    const validationErrors = validateStudentData(firstName, middleName, lastName);
+    if (validationErrors.length > 0) {
+      setEditErrors(validationErrors);
+      return;
+    }
+
+    if (classStudents.some(s => s.number === number && s.id !== editingStudent.id)) {
+      setEditErrors(['Ученик с този номер вече съществува в класа!']);
+      return;
+    }
+
+    try {
+      await updateStudent(editingStudent.id, {
+        firstName: firstName.trim(),
+        middleName: middleName.trim(),
+        lastName: lastName.trim(),
+        number,
+        gender: editFormData.gender,
+      });
+
+      // Close modal and reset
+      setShowEditModal(false);
+      setEditingStudent(null);
+      setEditFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
+      setEditErrors([]);
+    } catch (err: any) {
+      setEditErrors([err.message || 'Грешка при запазване на промените!']);
+    }
+  };
+
   const handleEditStudent = (student: Student) => {
     setEditingStudent(student);
-    setFormData({
+    setEditFormData({
       firstName: student.firstName,
       middleName: student.middleName,
       lastName: student.lastName,
       number: student.number,
       gender: student.gender,
     });
-    setErrors([]);
+    setEditErrors([]);
+    setShowEditModal(true);
   };
 
   const handleDeleteStudent = async (studentId: string) => {
@@ -105,9 +139,10 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
   };
 
   const cancelEdit = () => {
+    setShowEditModal(false);
     setEditingStudent(null);
-    setFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
-    setErrors([]);
+    setEditFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
+    setEditErrors([]);
   };
 
   const handleViewProfile = (student: Student) => {
@@ -131,6 +166,20 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
     }
   }, [classStudents.length, editingStudent]);
 
+  // Hide footer when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('students-modal-open');
+    } else {
+      document.body.classList.remove('students-modal-open');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('students-modal-open');
+    };
+  }, [isOpen]);
+
   const handleBulkAdd = async () => {
     setBulkErrors([]);
     const lines = bulkText.trim().split('\n').filter(line => line.trim());
@@ -146,11 +195,27 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
       
-      // Pattern: "1. Име Презиме Фамилия" или "1 Име Презиме Фамилия"
-      const match = trimmedLine.match(/^(\d+)[\.\):\s]+(.+)$/);
+      // Pattern: "1. Име Презиме Фамилия (момче/момиче)" или "1 Име Презиме Фамилия (момче/момиче)"
+      // Extract gender from parentheses if present
+      const genderMatch = trimmedLine.match(/\(([^)]+)\)\s*$/);
+      let gender: GenderType = 'male'; // Default gender
+      let lineWithoutGender = trimmedLine;
+      
+      if (genderMatch) {
+        const genderText = genderMatch[1].toLowerCase().trim();
+        if (genderText === 'момиче') {
+          gender = 'female';
+        } else if (genderText === 'момче') {
+          gender = 'male';
+        }
+        // Remove gender part from line
+        lineWithoutGender = trimmedLine.replace(/\s*\([^)]+\)\s*$/, '').trim();
+      }
+      
+      const match = lineWithoutGender.match(/^(\d+)[\.\):\s]+(.+)$/);
       
       if (!match) {
-        validationErrors.push(`Ред ${index + 1}: Невалиден формат. Използвайте: "№. Име Презиме Фамилия"`);
+        validationErrors.push(`Ред ${index + 1}: Невалиден формат. Използвайте: "№. Име Презиме Фамилия (момче/момиче)"`);
         return;
       }
 
@@ -190,7 +255,7 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
         lastName: lastName.trim(),
         class: className,
         number: number,
-        gender: 'male', // Default gender, can be changed later
+        gender: gender,
       });
     });
 
@@ -278,12 +343,12 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
                 Въведете учениците по следния формат (един на ред):
               </p>
               <div className="bg-white p-3 rounded border border-blue-200 font-mono text-sm">
-                <div>1. Иван Петров Иванов</div>
-                <div>2. Мария Георгиева Димитрова</div>
-                <div>3. Петър Илиев Стоянов</div>
+                <div>1. Иван Петров Иванов (момче)</div>
+                <div>2. Мария Георгиева Димитрова (момиче)</div>
+                <div>3. Петър Илиев Стоянов (момче)</div>
               </div>
               <p className="text-xs text-blue-700 mt-2">
-                * Поддържа формати: "1. Име", "1) Име", "1: Име" или "1 Име"
+                * Поддържа формати: "1. Име Презиме Фамилия (момче/момиче)" или "1) Име Презиме Фамилия (момче/момиче)"
               </p>
             </div>
 
@@ -300,12 +365,12 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Въведете списък с ученици:
+                Въведете списък с ученици (момче/момиче):
               </label>
               <textarea
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                placeholder="1. Иван Петров Иванов&#10;2. Мария Георгиева Димитрова&#10;3. Петър Илиев Стоянов"
+                placeholder="1. Иван Петров Иванов (момче)&#10;2. Мария Георгиева Димитрова (момиче)&#10;3. Петър Илиев Стоянов (момче)"
                 className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
               />
             </div>
@@ -327,11 +392,11 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
           </div>
         )}
 
-        {/* Add/Edit Student Form */}
+        {/* Add Student Form */}
         {!showBulkForm && (
         <div className="student-form-section">
           <h3 className="section-title">
-            {editingStudent ? 'Редактиране на ученик' : 'Добавяне на нов ученик'}
+            Добавяне на нов ученик
           </h3>
 
           {errors.length > 0 && (
@@ -397,21 +462,16 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
                 className="student-input"
                 required
               >
-                <option value="male">👨 Момче</option>
-                <option value="female">👩 Момиче</option>
+                <option value="male">Момче</option>
+                <option value="female">Момиче</option>
               </select>
             </div>
           </div>
 
           <div className="form-actions">
             <Button onClick={handleAddStudent} className="add-btn">
-              {editingStudent ? 'Запази промените' : 'Добави ученик'}
+              Добави ученик
             </Button>
-            {editingStudent && (
-              <Button variant="secondary" onClick={cancelEdit} className="cancel-btn">
-                Откажи
-              </Button>
-            )}
           </div>
         </div>
         )}
@@ -425,20 +485,19 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
               <table className="students-table">
                 <thead>
                   <tr>
-                    <th className="col-number">№ в клас</th>
+                    <th className="col-class-number">№ в клас</th>
                     <th className="col-name">Име</th>
                     <th className="col-middle">Презире</th>
                     <th className="col-last">Фамилия</th>
-                    <th className="col-class-number">№ в клас</th>
                     <th className="col-gender">Пол</th>
                     <th className="col-actions">Действия</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {classStudents.map((student, index) => (
+                  {classStudents.map((student) => (
                     <tr key={student.id} className="student-row">
-                      <td className="col-number">
-                        <div className="student-index">{index + 1}</div>
+                      <td className="col-class-number">
+                        <div className="class-number">{student.number}</div>
                       </td>
                       <td className="col-name">
                         <div className="student-name">{student.firstName}</div>
@@ -449,12 +508,9 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
                       <td className="col-last">
                         <div className="student-last">{student.lastName}</div>
                       </td>
-                      <td className="col-class-number">
-                        <div className="class-number">{student.number}</div>
-                      </td>
                       <td className="col-gender">
                         <div className="gender-display">
-                          {student.gender === 'male' ? '👨 Момче' : '👩 Момиче'}
+                          {student.gender === 'male' ? 'Момче' : 'Момиче'}
                         </div>
                       </td>
                       <td className="col-actions">
@@ -488,7 +544,7 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
             </div>
           ) : (
             <div className="empty-state">
-              <div className="empty-icon">👥</div>
+              <div className="empty-icon"></div>
               <h4 className="empty-title">Все още няма добавени ученици</h4>
               <p className="empty-description">Използвайте формата по-горе за да добавите първия ученик в този клас</p>
             </div>
@@ -505,6 +561,94 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
           student={selectedStudent}
         />
       )}
+
+      {/* Edit Student Modal */}
+      <Modal 
+        isOpen={showEditModal} 
+        onClose={cancelEdit} 
+        title="Редактиране на ученик"
+        size="md"
+      >
+        <div className="student-form-section">
+          {editErrors.length > 0 && (
+            <div className="form-errors">
+              {editErrors.map((error, index) => (
+                <div key={index} className="error-item">{error}</div>
+              ))}
+            </div>
+          )}
+
+          <div className="form-grid">
+            <div className="form-field">
+              <label className="field-label">Име *</label>
+              <Input
+                value={editFormData.firstName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                placeholder="Име"
+                required
+                className="student-input"
+              />
+            </div>
+            <div className="form-field">
+              <label className="field-label">Презире *</label>
+              <Input
+                value={editFormData.middleName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, middleName: e.target.value }))}
+                placeholder="Презиме"
+                required
+                className="student-input"
+              />
+            </div>
+            <div className="form-field">
+              <label className="field-label">Фамилия *</label>
+              <Input
+                value={editFormData.lastName}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                placeholder="Фамилия"
+                required
+                className="student-input"
+              />
+            </div>
+            <div className="form-field">
+              <label className="field-label">№ в клас *</label>
+              <Input
+                type="text"
+                value={String(editFormData.number || '')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const num = value === '' ? 1 : parseInt(value) || 1;
+                  setEditFormData(prev => ({ ...prev, number: num }));
+                }}
+                onFocus={(e) => e.target.select()}
+                placeholder="Номер"
+                required
+                className="student-input number-input"
+              />
+            </div>
+            <div className="form-field">
+              <label className="field-label">Пол *</label>
+              <select
+                value={editFormData.gender}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, gender: e.target.value as GenderType }))}
+                className="student-input"
+                required
+              >
+                <option value="male">Момче</option>
+                <option value="female">Момиче</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <Button onClick={handleSaveEdit} className="add-btn">
+              Запази промените
+            </Button>
+            <Button variant="secondary" onClick={cancelEdit} className="cancel-btn">
+              Откажи
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

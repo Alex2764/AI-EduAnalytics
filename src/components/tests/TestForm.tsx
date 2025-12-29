@@ -347,7 +347,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
 
           <div className="mt-4 bg-blue-50 p-3 rounded-lg">
             <p className="text-xs text-blue-800">
-              💡 <strong>Пример:</strong> При тест с {maxPoints} точки, текущата скала е: 
+              <strong>Пример:</strong> При тест с {maxPoints} точки, текущата скала е: 
               2 = {parseFloat(String(gradeScale.grade2 || '0')) || 0}-{((parseFloat(String(gradeScale.grade3 || '0')) || 0) - 0.5).toFixed(1)}т, 
               3 = {parseFloat(String(gradeScale.grade3 || '0')) || 0}-{((parseFloat(String(gradeScale.grade4 || '0')) || 0) - 0.5).toFixed(1)}т, 
               4 = {parseFloat(String(gradeScale.grade4 || '0')) || 0}-{((parseFloat(String(gradeScale.grade5 || '0')) || 0) - 0.5).toFixed(1)}т, 
@@ -442,7 +442,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
               
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-xs text-blue-800">
-                  💡 <strong>Общо точки:</strong> {
+                  <strong>Общо точки:</strong> {
                     questions.reduce((sum, q) => sum + (q.points || 0), 0)
                   } / {maxPoints}
                   {questions.reduce((sum, q) => sum + (q.points || 0), 0) !== parseFloat(maxPoints) && (

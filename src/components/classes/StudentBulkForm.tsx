@@ -184,8 +184,8 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
                 onChange={(e) => handleStudentDataChange(index, 'gender', e.target.value as GenderType)}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               >
-                <option value="male">👨 Момче</option>
-                <option value="female">👩 Момиче</option>
+                <option value="male">Момче</option>
+                <option value="female">Момиче</option>
               </select>
             </div>
           ))}
@@ -194,7 +194,7 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
 
       <div className="flex justify-end space-x-4 pt-4 border-t">
         <Button variant="secondary" onClick={onClose}>
-          ❌ Откажи
+          Откажи
         </Button>
         <Button onClick={handleSave}>
           💾 Запази учениците

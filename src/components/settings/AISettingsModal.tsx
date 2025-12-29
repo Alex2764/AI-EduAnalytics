@@ -29,8 +29,13 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       setTeacherName(settings.teacher_name || '');
       setSubject(settings.subject || '');
     } catch (err: any) {
+      // Silently fail if backend is not available - don't show error in console
+      if (err?.message?.includes('Failed to fetch') || err?.message?.includes('ERR_CONNECTION_REFUSED')) {
+        // Backend is not running, silently ignore
+        return;
+      }
+      // Only log other errors
       console.error('Error loading AI settings:', err);
-      // Don't show error for loading - settings might not exist yet
     }
   }, []);
 
@@ -42,7 +47,13 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       const data = await templateAPI.getTemplates();
       setTemplates(data);
     } catch (err: any) {
-      setError(err.message || 'Грешка при зареждане на шаблони');
+      // Don't show error if backend is not available
+      if (err?.message?.includes('Failed to fetch') || err?.message?.includes('ERR_CONNECTION_REFUSED')) {
+        // Backend is not running, show friendly message
+        setError('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+      } else {
+        setError(err.message || 'Грешка при зареждане на шаблони');
+      }
     } finally {
       setLoading(false);
     }
@@ -157,8 +168,20 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
         )}
 
         {/* AI Settings Section */}
-        <div className="border-b pb-4">
+        <div className="border-b pb-4"> <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+              <p className="font-semibold mb-1">
+                <span className="info-icon-tooltip-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
+                  <span className="info-icon-tooltip" style={{ cursor: 'help' }}>
+                    ℹ️
+                  </span>
+                  <span className="info-icon-tooltip-text">
+                    AI използва това име на преподавател и предмет, когато не са предоставени в конкретния тест или клас. Тези стойности се използват като резервни по време на генериране на анализ.
+                  </span>
+                </span>
+              </p>
           <h3 className="text-lg font-semibold mb-3">AI Настройки</h3>
+            </div>
+          
           <div className="space-y-4">
             <Input
               label="Име на преподавател (за използване от AI)"
@@ -183,10 +206,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
                 {savingSettings ? 'Запазване...' : 'Запази настройки'}
               </Button>
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-              <p className="font-semibold mb-1">ℹ️ Защо тези полета?</p>
-              <p>AI използва това име на преподавател и предмет, когато не са предоставени в конкретния тест или клас. Тези стойности се използват като резервни по време на генериране на анализ.</p>
-            </div>
+           
           </div>
         </div>
 

@@ -176,7 +176,7 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
                   variant="primary"
                   className="text-sm"
                 >
-                  ✅ Маркирай всички
+                  Маркирай всички
                 </Button>
                 <Button 
                   onClick={handleClearAll} 
@@ -238,7 +238,7 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
                                 handleQuestionToggle(question.id);
                               }}
                             >
-                              {hasPoints ? '✅ Решен' : '❌ Нерешен'}
+                              {hasPoints ? 'Решен' : 'Нерешен'}
                             </button>
                           )}
                           
@@ -289,7 +289,7 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
         ) : (
           <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
             <p className="text-sm text-yellow-800">
-              ⚠️ Този тест няма дефинирани въпроси. Моля, първо добавете въпроси към теста.
+              Този тест няма дефинирани въпроси. Моля, първо добавете въпроси към теста.
             </p>
           </div>
         )}

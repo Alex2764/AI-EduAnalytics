@@ -26,7 +26,7 @@ export const ClassAnalytics: React.FC = () => {
         />
 
         <div className="bg-gray-50 p-8 rounded-lg text-center">
-          <div className="text-4xl mb-4">📊</div>
+          <div className="text-4xl mb-4"></div>
           <h3 className="text-lg font-semibold text-gray-700 mb-2">
             Изберете клас за да видите анализите
           </h3>
@@ -159,25 +159,25 @@ export const ClassAnalytics: React.FC = () => {
             title="Ученици в класа"
             value={totalStudents.toString()}
             color="green"
-            icon="👥"
+            icon=""
           />
           <StatCard
             title="Общо резултати"
             value={totalResults.toString()}
             color="blue"
-            icon="📝"
+            icon=""
           />
           <StatCard
             title="Среден успех"
             value={avgGrade}
             color="purple"
-            icon="📊"
+            icon=""
           />
           <StatCard
             title="Добри оценки (5-6)"
             value={`${goodGradesPercentage}%`}
             color="orange"
-            icon="🎯"
+            icon=""
           />
         </div>
       </div>
