@@ -4,7 +4,7 @@ Gemini AI Service for generating test analysis
 
 import re
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import time
 
 try:

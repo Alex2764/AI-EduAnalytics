@@ -1364,7 +1364,7 @@ if __name__ == "__main__":
     
     uvicorn.run(
         app,
-        host="0.0.0.0",
+        host=settings.host,
         port=settings.port,
         log_level="info"
     )

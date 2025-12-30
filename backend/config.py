@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     api_version: str = "1.0.0"
     api_title: str = "AI EduAnalytics API"
     api_description: str = "AI-powered educational test analysis and document generation"
+    host: str = "0.0.0.0"
     port: int = 8000
     
     # Gemini AI Configuration
