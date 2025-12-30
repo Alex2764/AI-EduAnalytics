@@ -1,0 +1,846 @@
+# VITE + REACT + TYPESCRIPT RULES
+
+================================================================================
+SECTION 1: VITE CONFIGURATION
+================================================================================
+
+## VITE.CONFIG.TS SETUP
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [
+    react({
+      // Enable Fast Refresh
+      fastRefresh: true,
+      // Babel options if needed
+      babel: {
+        plugins: [],
+      },
+    }),
+  ],
+  
+  // Path aliases
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@hooks': path.resolve(__dirname, './src/hooks'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@types': path.resolve(__dirname, './src/types'),
+      '@utils': path.resolve(__dirname, './src/utils'),
+    },
+  },
+  
+  // Development server
+  server: {
+    port: 3000,
+    host: true, // Listen on all addresses
+    open: true, // Open browser on start
+    proxy: {
+      // Proxy API requests to backend
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
+  
+  // Build options
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    // Chunk size warnings
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        // Manual chunks for better caching
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'supabase': ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
+  
+  // Environment variables prefix
+  envPrefix: 'VITE_',
+  
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', '@supabase/supabase-js'],
+  },
+});
+```
+
+## TSCONFIG.JSON SETUP
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path aliases - match vite.config.ts */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/components/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@types/*": ["./src/types/*"],
+      "@utils/*": ["./src/utils/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+```
+
+## ENVIRONMENT VARIABLES
+
+```typescript
+// ✅ VITE environment variables
+// .env file
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGc...
+VITE_API_URL=http://localhost:8000
+
+// ✅ Access in code
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const apiUrl = import.meta.env.VITE_API_URL;
+
+// ✅ Type-safe environment variables
+// src/env.d.ts
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_ANON_KEY: string;
+  readonly VITE_API_URL: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
+// ✅ Validate environment variables on startup
+// src/lib/env.ts
+export function validateEnv() {
+  const required = [
+    'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY',
+    'VITE_API_URL',
+  ];
+  
+  const missing = required.filter(key => !import.meta.env[key]);
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing environment variables: ${missing.join(', ')}`);
+  }
+}
+
+// ❌ NEVER commit .env files
+// Add to .gitignore:
+.env
+.env.local
+.env.production
+```
+
+## PROJECT STRUCTURE
+
+```
+project/
+├── public/              # Static assets
+│   └── favicon.ico
+├── src/
+│   ├── components/      # React components
+│   │   ├── common/      # Reusable components
+│   │   │   ├── Button.tsx
+│   │   │   └── Input.tsx
+│   │   └── features/    # Feature-specific
+│   │       └── UserCard.tsx
+│   ├── hooks/           # Custom React hooks
+│   │   ├── useSupabase.ts
+│   │   └── useAuth.ts
+│   ├── lib/             # Libraries & utilities
+│   │   ├── supabase.ts
+│   │   └── api.ts
+│   ├── pages/           # Page components
+│   │   ├── Home.tsx
+│   │   └── Dashboard.tsx
+│   ├── types/           # TypeScript types
+│   │   └── database.types.ts
+│   ├── utils/           # Utility functions
+│   │   └── formatDate.ts
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── env.d.ts
+│   └── index.css
+├── .env.example
+├── .gitignore
+├── index.html
+├── package.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
+```
+
+================================================================================
+SECTION 2: REACT + TYPESCRIPT PATTERNS
+================================================================================
+
+## COMPONENT STRUCTURE
+
+```typescript
+// ✅ Perfect component template for Vite + React + TS
+
+import { useState, useCallback, useMemo } from 'react';
+
+/**
+ * UserCard displays user information with actions
+ * 
+ * @example
+ * <UserCard user={userData} onEdit={handleEdit} />
+ */
+
+// 1. Props Interface
+interface UserCardProps {
+  user: User;
+  onEdit?: (userId: string) => void;
+  onDelete?: (userId: string) => void;
+  className?: string;
+}
+
+// 2. Component
+export function UserCard({ 
+  user, 
+  onEdit, 
+  onDelete,
+  className = '' 
+}: UserCardProps) {
+  // 3. State
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // 4. Memoized values
+  const fullName = useMemo(
+    () => `${user.firstName} ${user.lastName}`,
+    [user.firstName, user.lastName]
+  );
+  
+  // 5. Callbacks
+  const handleEdit = useCallback(() => {
+    onEdit?.(user.id);
+  }, [user.id, onEdit]);
+  
+  const handleToggle = useCallback(() => {
+    setIsExpanded(prev => !prev);
+  }, []);
+  
+  // 6. Render
+  return (
+    <article className={`user-card ${className}`}>
+      <header>
+        <h3>{fullName}</h3>
+        <button onClick={handleToggle}>
+          {isExpanded ? 'Show Less' : 'Show More'}
+        </button>
+      </header>
+      
+      {isExpanded && (
+        <div className="user-details">
+          <p>Email: {user.email}</p>
+          <p>Role: {user.role}</p>
+        </div>
+      )}
+      
+      <footer>
+        {onEdit && (
+          <button onClick={handleEdit}>Edit</button>
+        )}
+        {onDelete && (
+          <button onClick={() => onDelete(user.id)}>Delete</button>
+        )}
+      </footer>
+    </article>
+  );
+}
+```
+
+## TYPESCRIPT TYPES
+
+```typescript
+// src/types/user.types.ts
+
+// ✅ Interface for objects with known properties
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: 'admin' | 'user' | 'guest'; // Union types
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ✅ Type alias for unions and primitives
+export type UserRole = 'admin' | 'user' | 'guest';
+export type UserId = string;
+
+// ✅ Utility types
+export type PartialUser = Partial<User>; // All props optional
+export type RequiredUser = Required<User>; // All props required
+export type UserWithoutId = Omit<User, 'id'>; // Exclude props
+export type UserBasicInfo = Pick<User, 'id' | 'firstName' | 'lastName'>; // Select props
+
+// ✅ Generic types
+export interface ApiResponse<T> {
+  data: T | null;
+  error: string | null;
+  isLoading: boolean;
+}
+
+// Usage
+const userResponse: ApiResponse<User> = {
+  data: userData,
+  error: null,
+  isLoading: false,
+};
+
+// ✅ Array types
+export type UserList = User[];
+// or
+export type UserList = Array<User>;
+
+// ✅ Function types
+export type UserCallback = (user: User) => void;
+export type AsyncUserFetcher = (id: string) => Promise<User>;
+```
+
+## CUSTOM HOOKS PATTERN
+
+```typescript
+// src/hooks/useUser.ts
+
+import { useState, useEffect } from 'react';
+import type { User } from '@/types/user.types';
+
+interface UseUserReturn {
+  user: User | null;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for fetching user data
+ * 
+ * @param userId - User ID to fetch
+ * @returns User data, loading state, error, and refetch function
+ * 
+ * @example
+ * const { user, isLoading, error } = useUser('123');
+ */
+export function useUser(userId: string): UseUserReturn {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  
+  const fetchUser = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/users/${userId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setUser(data);
+    } catch (err) {
+      setError(err as Error);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    let cancelled = false;
+    
+    const loadUser = async () => {
+      await fetchUser();
+    };
+    
+    if (!cancelled) {
+      loadUser();
+    }
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+  
+  return { 
+    user, 
+    isLoading, 
+    error, 
+    refetch: fetchUser 
+  };
+}
+
+// ✅ Usage in component
+function UserProfile({ userId }: { userId: string }) {
+  const { user, isLoading, error, refetch } = useUser(userId);
+  
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!user) return <div>User not found</div>;
+  
+  return (
+    <div>
+      <h1>{user.firstName} {user.lastName}</h1>
+      <button onClick={refetch}>Refresh</button>
+    </div>
+  );
+}
+```
+
+## HOOKS RULES
+
+```typescript
+// ✅ useState - Simple state
+const [count, setCount] = useState(0);
+const [user, setUser] = useState<User | null>(null);
+
+// ✅ useEffect - Side effects with cleanup
+useEffect(() => {
+  const subscription = eventBus.subscribe(handleEvent);
+  
+  return () => {
+    subscription.unsubscribe();
+  };
+}, [handleEvent]);
+
+// ✅ useMemo - Expensive calculations
+const filteredUsers = useMemo(
+  () => users.filter(u => u.role === 'admin'),
+  [users]
+);
+
+// ✅ useCallback - Memoize functions
+const handleClick = useCallback((id: string) => {
+  console.log('Clicked:', id);
+}, []);
+
+// ✅ useRef - DOM references or mutable values
+const inputRef = useRef<HTMLInputElement>(null);
+const renderCount = useRef(0);
+
+// Focus input on mount
+useEffect(() => {
+  inputRef.current?.focus();
+}, []);
+
+// ❌ NEVER call hooks conditionally
+if (condition) {
+  const [state] = useState(); // ❌ ERROR!
+}
+
+// ✅ Instead, use the hook unconditionally
+const [state, setState] = useState();
+if (condition) {
+  // Use state here
+}
+
+// ❌ NEVER call hooks in loops
+for (let i = 0; i < 10; i++) {
+  useEffect(() => {}); // ❌ ERROR!
+}
+```
+
+## PERFORMANCE OPTIMIZATION
+
+```typescript
+// ✅ React.memo - Prevent unnecessary re-renders
+import { memo } from 'react';
+
+interface ExpensiveComponentProps {
+  data: ComplexData;
+  onUpdate: (id: string) => void;
+}
+
+export const ExpensiveComponent = memo<ExpensiveComponentProps>(
+  ({ data, onUpdate }) => {
+    console.log('Rendering expensive component');
+    
+    return (
+      <div>
+        {/* Heavy computation */}
+        <button onClick={() => onUpdate(data.id)}>Update</button>
+      </div>
+    );
+  }
+);
+
+// ✅ Code splitting with lazy loading
+import { lazy, Suspense } from 'react';
+
+const HeavyComponent = lazy(() => import('./HeavyComponent'));
+
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HeavyComponent />
+    </Suspense>
+  );
+}
+
+// ✅ Debounce expensive operations
+import { useState, useEffect } from 'react';
+
+function SearchInput() {
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  
+  // Debounce by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [query]);
+  
+  // Use debouncedQuery for API calls
+  useEffect(() => {
+    if (debouncedQuery) {
+      // Make API call
+      searchAPI(debouncedQuery);
+    }
+  }, [debouncedQuery]);
+  
+  return (
+    <input
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Search..."
+    />
+  );
+}
+```
+
+## ERROR HANDLING
+
+```typescript
+// ✅ Error Boundary (class component - only way in React)
+import { Component, ReactNode, ErrorInfo } from 'react';
+
+interface Props {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Error caught:', error, errorInfo);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div role="alert">
+          <h2>Something went wrong</h2>
+          <details>
+            <summary>Error details</summary>
+            <pre>{this.state.error?.message}</pre>
+          </details>
+        </div>
+      );
+    }
+    
+    return this.props.children;
+  }
+}
+
+// ✅ Usage
+function App() {
+  return (
+    <ErrorBoundary fallback={<ErrorPage />}>
+      <MainContent />
+    </ErrorBoundary>
+  );
+}
+
+// ✅ Try-catch in async functions
+async function fetchData() {
+  try {
+    const response = await fetch('/api/data');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Fetch failed:', error.message);
+    }
+    throw error;
+  }
+}
+```
+
+================================================================================
+SECTION 3: VITE-SPECIFIC FEATURES
+================================================================================
+
+## STATIC ASSETS
+
+```typescript
+// ✅ Import static assets
+import logoUrl from './assets/logo.svg';
+import dataJson from './data.json';
+
+function App() {
+  return (
+    <div>
+      <img src={logoUrl} alt="Logo" />
+      <pre>{JSON.stringify(dataJson, null, 2)}</pre>
+    </div>
+  );
+}
+
+// ✅ Use public directory for assets that need exact path
+// public/favicon.ico → /favicon.ico
+// public/images/hero.jpg → /images/hero.jpg
+
+<img src="/images/hero.jpg" alt="Hero" />
+
+// ✅ Dynamic imports
+const modules = import.meta.glob('./components/*.tsx');
+
+for (const path in modules) {
+  modules[path]().then((mod) => {
+    console.log(path, mod);
+  });
+}
+```
+
+## HOT MODULE REPLACEMENT (HMR)
+
+```typescript
+// ✅ Vite automatically handles HMR for React components
+
+// ✅ Manual HMR for non-React modules
+if (import.meta.hot) {
+  import.meta.hot.accept((newModule) => {
+    // Handle hot update
+  });
+  
+  import.meta.hot.dispose(() => {
+    // Cleanup before update
+  });
+}
+
+// ✅ Conditional code for development
+if (import.meta.env.DEV) {
+  console.log('Development mode');
+}
+
+if (import.meta.env.PROD) {
+  console.log('Production mode');
+}
+```
+
+## BUILD OPTIMIZATION
+
+```typescript
+// ✅ Import CSS modules
+import styles from './Button.module.css';
+
+export function Button() {
+  return <button className={styles.button}>Click</button>;
+}
+
+// ✅ Tree-shaking friendly imports
+// Bad - imports entire library
+import _ from 'lodash';
+
+// Good - imports only what you need
+import debounce from 'lodash/debounce';
+// or
+import { debounce } from 'lodash-es';
+
+// ✅ Lazy load routes
+import { lazy } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+const Home = lazy(() => import('./pages/Home'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
+  );
+}
+```
+
+================================================================================
+SECTION 4: ACCESSIBILITY
+================================================================================
+
+```typescript
+// ✅ Semantic HTML
+function AccessibleButton() {
+  return (
+    <button
+      type="button"
+      aria-label="Delete item"
+      onClick={handleDelete}
+    >
+      <TrashIcon aria-hidden="true" />
+      Delete
+    </button>
+  );
+}
+
+// ✅ Form accessibility
+function LoginForm() {
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="email">Email:</label>
+      <input
+        id="email"
+        type="email"
+        name="email"
+        required
+        aria-required="true"
+        aria-describedby="email-help"
+      />
+      <small id="email-help">We'll never share your email</small>
+      
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+
+// ✅ Focus management
+import { useEffect, useRef } from 'react';
+
+function Modal({ isOpen, onClose }: ModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (isOpen) {
+      modalRef.current?.focus();
+    }
+  }, [isOpen]);
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
+    >
+      <h2>Modal Title</h2>
+      <button onClick={onClose}>Close</button>
+    </div>
+  );
+}
+```
+
+================================================================================
+QUICK CHECKLIST
+================================================================================
+
+Before committing React code:
+- [ ] TypeScript types defined for all props
+- [ ] Using import.meta.env for environment variables
+- [ ] Path aliases used (@/components, @/hooks, etc.)
+- [ ] Components are functional (no class components)
+- [ ] Hooks follow Rules of Hooks
+- [ ] Error boundaries implemented
+- [ ] Loading states handled
+- [ ] Accessibility attributes (ARIA, semantic HTML)
+- [ ] No console.log in production code
+- [ ] Lazy loading for heavy components
+- [ ] Environment variables prefixed with VITE_
+
+================================================================================
+COMMON MISTAKES TO AVOID
+================================================================================
+
+❌ Using process.env instead of import.meta.env
+✅ const apiUrl = import.meta.env.VITE_API_URL;
+
+❌ Forgetting VITE_ prefix for env variables
+✅ VITE_API_URL=http://localhost:8000
+
+❌ Not using path aliases
+✅ import { Button } from '@/components/Button';
+
+❌ Importing entire library
+✅ import debounce from 'lodash/debounce';
+
+❌ Missing TypeScript types
+✅ interface Props { user: User; }
+
+❌ Inline functions in JSX (performance-critical)
+✅ Use useCallback for functions passed to child components
+
+❌ Not cleaning up useEffect
+✅ Always return cleanup function
+
+❌ Mutating state directly
+✅ setUsers([...users, newUser]);
+

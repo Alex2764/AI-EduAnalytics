@@ -2,11 +2,9 @@
 Gemini AI Service for generating test analysis
 """
 
-import os
 import re
 import logging
 from typing import Dict, Any, Optional
-from dotenv import load_dotenv
 import time
 
 try:
@@ -14,7 +12,8 @@ try:
 except ImportError:
     raise ImportError("google-generativeai not installed. Run: pip install google-generativeai")
 
-load_dotenv()
+# Import settings
+from config import get_settings
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +34,9 @@ class GeminiService:
     """Service for interacting with Google Gemini AI"""
     
     def __init__(self):
-        api_key = os.getenv("GEMINI_API_KEY")
+        settings = get_settings()
+        api_key = settings.gemini_api_key
+        
         if not api_key:
             logger.error("GEMINI_API_KEY not found in environment variables")
             raise ValueError("GEMINI_API_KEY not found in environment variables")
@@ -259,11 +260,28 @@ class GeminiService:
         avg_grade: float,
         min_points: float,
         max_points: float,
-        students: list = None,
-        results: list = None,
-        test_data: Dict[str, Any] = None
+        students: Optional[List[Dict[str, Any]]] = None,
+        results: Optional[List[Dict[str, Any]]] = None,
+        test_data: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Build comprehensive prompt for test analysis"""
+        """
+        Build comprehensive prompt for test analysis
+        
+        Args:
+            class_name: Name of the class
+            subject: Subject name
+            total_students: Total number of students in the class
+            avg_points: Average points achieved
+            avg_grade: Average grade
+            min_points: Minimum points achieved
+            max_points: Maximum points achieved
+            students: Optional list of student dictionaries
+            results: Optional list of test result dictionaries
+            test_data: Optional dictionary with additional test data
+        
+        Returns:
+            Formatted prompt string for AI analysis
+        """
         
         students = students or []
         results = results or []
@@ -716,7 +734,18 @@ IMPROVEMENT_MEASURES:
         return sections
     
     def _fallback_parse(self, ai_text: str) -> Dict[str, str]:
-        """Fallback parsing method if regex fails"""
+        """
+        Fallback parsing method if regex fails
+        
+        Uses line-by-line parsing to extract sections from AI response.
+        If that also fails, splits text into 5 equal chunks as emergency fallback.
+        
+        Args:
+            ai_text: Raw AI response text
+        
+        Returns:
+            Dictionary with 5 analysis sections (lowest_results_analysis, etc.)
+        """
         
         logger.debug("Using fallback line-by-line parsing...")
         sections = {}
@@ -877,7 +906,12 @@ IMPROVEMENT_MEASURES:
 _gemini_service: Optional[GeminiService] = None
 
 def get_gemini_service() -> GeminiService:
-    """Get or create Gemini service instance"""
+    """
+    Get or create Gemini service instance (singleton pattern)
+    
+    Returns:
+        GeminiService instance
+    """
     global _gemini_service
     if _gemini_service is None:
         logger.info("Creating new Gemini service instance")

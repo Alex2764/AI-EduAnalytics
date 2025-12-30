@@ -38,6 +38,9 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
     gender: 'male' as GenderType,
   });
   const [editErrors, setEditErrors] = useState<string[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const classStudents = students
     .filter(s => s.class === className)
@@ -59,6 +62,7 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
     }
 
     try {
+      setAdding(true);
       // Add new student
       await addStudent({
         firstName: firstName.trim(),
@@ -73,6 +77,8 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
       setFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
     } catch (err: any) {
       setErrors([err.message || 'Грешка при запазване на ученик!']);
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -94,6 +100,7 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
     }
 
     try {
+      setUpdating(true);
       await updateStudent(editingStudent.id, {
         firstName: firstName.trim(),
         middleName: middleName.trim(),
@@ -109,6 +116,8 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
       setEditErrors([]);
     } catch (err: any) {
       setEditErrors([err.message || 'Грешка при запазване на промените!']);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -131,9 +140,12 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
 
     if (window.confirm(`Сигурни ли сте, че искате да изтриете ${student.firstName} ${student.lastName}?`)) {
       try {
+        setDeleting(studentId);
         await deleteStudent(studentId);
       } catch (err: any) {
         alert(err.message || 'Грешка при изтриване на ученик!');
+      } finally {
+        setDeleting(null);
       }
     }
   };
@@ -469,8 +481,8 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
           </div>
 
           <div className="form-actions">
-            <Button onClick={handleAddStudent} className="add-btn">
-              Добави ученик
+            <Button onClick={handleAddStudent} className="add-btn" disabled={adding}>
+              {adding ? 'Добавяне...' : 'Добави ученик'}
             </Button>
           </div>
         </div>
@@ -532,8 +544,9 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
                             onClick={() => handleDeleteStudent(student.id)}
                             variant="danger"
                             className="delete-btn"
+                            disabled={deleting === student.id}
                           >
-                            Изтрий
+                            {deleting === student.id ? 'Изтриване...' : 'Изтрий'}
                           </Button>
                         </div>
                       </td>
@@ -640,10 +653,10 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
           </div>
 
           <div className="form-actions">
-            <Button onClick={handleSaveEdit} className="add-btn">
-              Запази промените
+            <Button onClick={handleSaveEdit} className="add-btn" disabled={updating}>
+              {updating ? 'Запазване...' : 'Запази промените'}
             </Button>
-            <Button variant="secondary" onClick={cancelEdit} className="cancel-btn">
+            <Button variant="secondary" onClick={cancelEdit} className="cancel-btn" disabled={updating}>
               Откажи
             </Button>
           </div>

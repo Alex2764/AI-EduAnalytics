@@ -36,6 +36,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
   });
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionCount, setQuestionCount] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
   const classOptions = useMemo(() => classes.map(cls => ({
     value: cls.name,
@@ -126,6 +127,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
     }
 
     try {
+      setLoading(true);
       await addTest({
         name: testName,
         class: selectedClass,
@@ -164,6 +166,8 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
       }
     } catch (err: any) {
       setError(err.message || 'Грешка при създаване на тест!');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -458,8 +462,8 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
       )}
 
       <div className="mt-6 flex justify-end">
-        <Button type="submit">
-          Създай тест
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Запазване...' : 'Създай тест'}
         </Button>
       </div>
     </form>

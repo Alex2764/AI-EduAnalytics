@@ -32,6 +32,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ isOpen, onClose, tes
   const [bulkPoints, setBulkPoints] = useState('');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const test = tests.find(t => t.id === testId);
 
@@ -180,10 +181,13 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ isOpen, onClose, tes
     }));
 
     try {
+      setSaving(true);
       await saveResults(testId, resultsToSave);
       onClose();
     } catch (err: any) {
       alert(err.message || 'Грешка при запазване на резултати!');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -450,11 +454,11 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ isOpen, onClose, tes
 
         {/* Action Buttons */}
         <div className="results-actions">
-          <Button variant="secondary" onClick={onClose} className="action-btn-cancel">
+          <Button variant="secondary" onClick={onClose} className="action-btn-cancel" disabled={saving}>
             Откажи
           </Button>
-          <Button onClick={handleSave} className="action-btn-save">
-            Запази резултати
+          <Button onClick={handleSave} className="action-btn-save" disabled={saving}>
+            {saving ? 'Запазване...' : 'Запази резултати'}
           </Button>
         </div>
       </div>

@@ -3,6 +3,8 @@ import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { templateAPI, aiSettingsAPI, type TemplateInfo, type AISettings } from '../../lib/api';
+import { logger } from '../../utils/logger';
+import { getErrorMessage, shouldIgnoreError, createErrorHandler } from '../../utils/errorHandler';
 
 interface AISettingsModalProps {
   isOpen: boolean;
@@ -29,13 +31,12 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       setTeacherName(settings.teacher_name || '');
       setSubject(settings.subject || '');
     } catch (err: any) {
-      // Silently fail if backend is not available - don't show error in console
-      if (err?.message?.includes('Failed to fetch') || err?.message?.includes('ERR_CONNECTION_REFUSED')) {
-        // Backend is not running, silently ignore
+      // Silently fail if backend is not available
+      if (shouldIgnoreError(err)) {
         return;
       }
       // Only log other errors
-      console.error('Error loading AI settings:', err);
+      logger.error('Error loading AI settings:', err);
     }
   }, []);
 
@@ -47,13 +48,8 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       const data = await templateAPI.getTemplates();
       setTemplates(data);
     } catch (err: any) {
-      // Don't show error if backend is not available
-      if (err?.message?.includes('Failed to fetch') || err?.message?.includes('ERR_CONNECTION_REFUSED')) {
-        // Backend is not running, show friendly message
-        setError('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
-      } else {
-        setError(err.message || 'Грешка при зареждане на шаблони');
-      }
+      const errorMessage = getErrorMessage(err, 'Грешка при зареждане на шаблони');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -79,7 +75,8 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       });
       setSuccess('AI настройките са запазени успешно!');
     } catch (err: any) {
-      setError(err.message || 'Грешка при запазване на настройки');
+      const errorMessage = getErrorMessage(err, 'Грешка при запазване на настройки');
+      setError(errorMessage);
     } finally {
       setSavingSettings(false);
     }
@@ -141,8 +138,9 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       setSuccess(`Шаблонът "${templateName}" е изтрит успешно!`);
       await loadTemplates();
     } catch (err: any) {
-      console.error('❌ Delete error:', err);
-      setError(err.message || 'Грешка при изтриване на шаблон');
+      const errorMessage = getErrorMessage(err, 'Грешка при изтриване на шаблон');
+      logger.error('Delete template error:', err);
+      setError(errorMessage);
     }
   };
 
@@ -154,7 +152,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="AI Settings - Управление на шаблони" size="xl">
-      <div className="space-y-6 p-4">
+      <div className="ai-settings-content space-y-6 p-4">
         {/* Error/Success Messages */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
@@ -168,18 +166,19 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
         )}
 
         {/* AI Settings Section */}
-        <div className="border-b pb-4"> <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
-              <p className="font-semibold mb-1">
-                <span className="info-icon-tooltip-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
-                  <span className="info-icon-tooltip" style={{ cursor: 'help' }}>
-                    ℹ️
-                  </span>
-                  <span className="info-icon-tooltip-text">
-                    AI използва това име на преподавател и предмет, когато не са предоставени в конкретния тест или клас. Тези стойности се използват като резервни по време на генериране на анализ.
-                  </span>
-                </span>
-              </p>
-          <h3 className="text-lg font-semibold mb-3">AI Настройки</h3>
+        <div className="border-b pb-4"> 
+          <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
+          <div className="flex items-center gap-2 mb-3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h3 className="text-lg font-semibold" style={{ margin: 0 }}>AI Настройки</h3>
+            <span className="info-icon-tooltip-wrapper" style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
+              <span className="info-icon-tooltip" style={{ cursor: 'help' }}>
+                ℹ️
+              </span>
+              <span className="info-icon-tooltip-text">
+                AI използва това име на преподавател и предмет, когато не са предоставени в конкретния тест или клас. Тези стойности се използват като резервни по време на генериране на анализ.
+              </span>
+            </span>
+          </div>
             </div>
           
           <div className="space-y-4">

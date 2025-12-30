@@ -22,6 +22,7 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
   const [studentCount, setStudentCount] = useState(25);
   const [studentData, setStudentData] = useState<StudentFormData[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Initialize student data array
   useEffect(() => {
@@ -87,10 +88,13 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
     }
 
     try {
+      setLoading(true);
       await addMultipleStudents(newStudents);
       onClose();
     } catch (err: any) {
       setErrors([err.message || 'Грешка при добавяне на ученици!']);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -193,11 +197,11 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
       </div>
 
       <div className="flex justify-end space-x-4 pt-4 border-t">
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>
           Откажи
         </Button>
-        <Button onClick={handleSave}>
-          💾 Запази учениците
+        <Button onClick={handleSave} disabled={loading}>
+          {loading ? 'Запазване...' : '💾 Запази учениците'}
         </Button>
       </div>
     </div>

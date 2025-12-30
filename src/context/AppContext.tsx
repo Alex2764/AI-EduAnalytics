@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Class, Student, Test, Result } from '../types';
+import { logger } from '../utils/logger';
 
 interface AppContextType {
   // State
@@ -68,7 +69,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       setClasses(mappedClasses);
     } catch (err: any) {
-      console.error('Error fetching classes:', err);
+      logger.error('Error fetching classes:', err);
       setError(err.message);
     }
   }, []);
@@ -96,7 +97,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       setStudents(mappedStudents);
     } catch (err: any) {
-      console.error('Error fetching students:', err);
+      logger.error('Error fetching students:', err);
       setError(err.message);
     }
   }, []);
@@ -141,7 +142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       setTests(mappedTests);
     } catch (err: any) {
-      console.error('Error fetching tests:', err);
+      logger.error('Error fetching tests:', err);
       setError(err.message);
     }
   }, []);
@@ -172,7 +173,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       setResults(mappedResults);
     } catch (err: any) {
-      console.error('Error fetching results:', err);
+      logger.error('Error fetching results:', err);
       setError(err.message);
     }
   }, []);
@@ -197,7 +198,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // CLASSES CRUD
   // ========================================
 
-  const addClass = async (classData: Omit<Class, 'id'>) => {
+  const addClass = useCallback(async (classData: Omit<Class, 'id'>) => {
     try {
       const { error } = await supabase
         .from('classes')
@@ -213,13 +214,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchClasses();
     } catch (err: any) {
-      console.error('Error adding class:', err);
+      logger.error('Error adding class:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchClasses]);
 
-  const updateClass = async (id: string, classData: Partial<Class>) => {
+  const updateClass = useCallback(async (id: string, classData: Partial<Class>) => {
     try {
       const updateData: any = {};
       if (classData.name) updateData.name = classData.name;
@@ -235,13 +236,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchClasses();
     } catch (err: any) {
-      console.error('Error updating class:', err);
+      logger.error('Error updating class:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchClasses]);
 
-  const deleteClass = async (id: string) => {
+  const deleteClass = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
         .from('classes')
@@ -252,17 +253,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchClasses();
     } catch (err: any) {
-      console.error('Error deleting class:', err);
+      logger.error('Error deleting class:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchClasses]);
 
   // ========================================
   // STUDENTS CRUD
   // ========================================
 
-  const addStudent = async (studentData: Omit<Student, 'id'>) => {
+  const addStudent = useCallback(async (studentData: Omit<Student, 'id'>) => {
     try {
       // Find class_id by class name
       const classRecord = classes.find(c => c.name === studentData.class);
@@ -285,13 +286,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchStudents();
     } catch (err: any) {
-      console.error('Error adding student:', err);
+      logger.error('Error adding student:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [classes, fetchStudents]);
 
-  const addMultipleStudents = async (studentsData: Omit<Student, 'id'>[]) => {
+  const addMultipleStudents = useCallback(async (studentsData: Omit<Student, 'id'>[]) => {
     try {
       const insertData = studentsData.map(student => {
         const classRecord = classes.find(c => c.name === student.class);
@@ -315,13 +316,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchStudents();
     } catch (err: any) {
-      console.error('Error adding multiple students:', err);
+      logger.error('Error adding multiple students:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [classes, fetchStudents]);
 
-  const updateStudent = async (id: string, studentData: Partial<Student>) => {
+  const updateStudent = useCallback(async (id: string, studentData: Partial<Student>) => {
     try {
       const updateData: any = {};
       if (studentData.firstName) updateData.first_name = studentData.firstName;
@@ -345,13 +346,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchStudents();
     } catch (err: any) {
-      console.error('Error updating student:', err);
+      logger.error('Error updating student:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [classes, fetchStudents]);
 
-  const deleteStudent = async (id: string) => {
+  const deleteStudent = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
         .from('students')
@@ -362,17 +363,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchStudents();
     } catch (err: any) {
-      console.error('Error deleting student:', err);
+      logger.error('Error deleting student:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchStudents]);
 
   // ========================================
   // TESTS CRUD
   // ========================================
 
-  const addTest = async (testData: Omit<Test, 'id'>) => {
+  const addTest = useCallback(async (testData: Omit<Test, 'id'>) => {
     try {
       // Find class_id by class name
       const classRecord = classes.find(c => c.name === testData.class);
@@ -396,13 +397,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchTests();
     } catch (err: any) {
-      console.error('Error adding test:', err);
+      logger.error('Error adding test:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [classes, fetchTests]);
 
-  const updateTest = async (id: string, testData: Partial<Test>) => {
+  const updateTest = useCallback(async (id: string, testData: Partial<Test>) => {
     try {
       const updateData: any = {};
       if (testData.name) updateData.name = testData.name;
@@ -427,13 +428,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchTests();
     } catch (err: any) {
-      console.error('Error updating test:', err);
+      logger.error('Error updating test:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [classes, fetchTests]);
 
-  const deleteTest = async (id: string) => {
+  const deleteTest = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
         .from('tests')
@@ -444,17 +445,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchTests();
     } catch (err: any) {
-      console.error('Error deleting test:', err);
+      logger.error('Error deleting test:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchTests]);
 
   // ========================================
   // RESULTS CRUD
   // ========================================
 
-  const addResult = async (resultData: Omit<Result, 'id'>) => {
+  const addResult = useCallback(async (resultData: Omit<Result, 'id'>) => {
     try {
       const { error } = await supabase
         .from('results')
@@ -476,13 +477,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchResults();
     } catch (err: any) {
-      console.error('Error adding result:', err);
+      logger.error('Error adding result:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchResults]);
 
-  const addMultipleResults = async (resultsData: Omit<Result, 'id'>[]) => {
+  const addMultipleResults = useCallback(async (resultsData: Omit<Result, 'id'>[]) => {
     try {
       const insertData = resultsData.map(r => ({
         student_id: r.studentId,
@@ -505,13 +506,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchResults();
     } catch (err: any) {
-      console.error('Error adding multiple results:', err);
+      logger.error('Error adding multiple results:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchResults]);
 
-  const updateResult = async (id: string, resultData: Partial<Result>) => {
+  const updateResult = useCallback(async (id: string, resultData: Partial<Result>) => {
     try {
       const updateData: any = {};
       if (resultData.points !== undefined) updateData.points = resultData.points;
@@ -531,13 +532,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchResults();
     } catch (err: any) {
-      console.error('Error updating result:', err);
+      logger.error('Error updating result:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchResults]);
 
-  const deleteResult = async (id: string) => {
+  const deleteResult = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
         .from('results')
@@ -548,13 +549,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchResults();
     } catch (err: any) {
-      console.error('Error deleting result:', err);
+      logger.error('Error deleting result:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchResults]);
 
-  const saveResults = async (testId: string, resultsData: Omit<Result, 'id'>[]) => {
+  const saveResults = useCallback(async (testId: string, resultsData: Omit<Result, 'id'>[]) => {
     try {
       // Delete existing results for this test
       const { error: deleteError } = await supabase
@@ -587,11 +588,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       await fetchResults();
     } catch (err: any) {
-      console.error('Error saving results:', err);
+      logger.error('Error saving results:', err);
       setError(err.message);
       throw err;
     }
-  };
+  }, [fetchResults]);
 
   // ========================================
   // CONTEXT VALUE

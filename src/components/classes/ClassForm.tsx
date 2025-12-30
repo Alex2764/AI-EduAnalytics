@@ -3,6 +3,7 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { useAppContext } from '../../context/AppContext';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 const classOptions = [
   { value: '5А', label: '5А' },
@@ -32,6 +33,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({ onSuccess }) => {
   const [className, setClassName] = useState('');
   const [schoolYear, setSchoolYear] = useState('2024/2025');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +51,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({ onSuccess }) => {
     }
 
     try {
+      setLoading(true);
       await addClass({
         name: className,
         schoolYear: schoolYear,
@@ -64,7 +67,9 @@ export const ClassForm: React.FC<ClassFormProps> = ({ onSuccess }) => {
         onSuccess();
       }
     } catch (err: any) {
-      setError(err.message || 'Грешка при създаване на клас!');
+      setError(getErrorMessage(err, 'Грешка при създаване на клас!'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -95,8 +100,8 @@ export const ClassForm: React.FC<ClassFormProps> = ({ onSuccess }) => {
         />
         
         <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
-          <Button type="submit">
-            Създай клас
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Запазване...' : 'Създай клас'}
           </Button>
         </div>
       </div>

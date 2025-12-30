@@ -5,6 +5,8 @@ import { Select } from '../common/Select';
 import { Button } from '../common/Button';
 import { generateReport } from '../../lib/api';
 import type { Test } from '../../types';
+import { logger } from '../../utils/logger';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 interface GenerateReportModalProps {
   isOpen: boolean;
@@ -106,9 +108,9 @@ export const GenerateReportModal: React.FC<GenerateReportModalProps> = ({
       }, 1500);
       
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Възникна грешка при генериране на анализа';
+      const errorMessage = getErrorMessage(err, 'Възникна грешка при генериране на анализа');
       setError(errorMessage);
-      console.error('Error generating report:', err);
+      logger.error('Error generating report:', err);
     } finally {
       setLoading(false);
     }

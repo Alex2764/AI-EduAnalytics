@@ -5,18 +5,24 @@ Main FastAPI application for AI-powered test analysis
 import logging
 import re
 import json
-from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form, Query
+from datetime import datetime
+from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form, Query, Path as FastAPIPath, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any
+import re
 from pathlib import Path
-import os
 
 # Import services
 from services.supabase_service import get_supabase_service, SupabaseConnectionError
 from services.gemini_service import get_gemini_service, GeminiAPIError, ParsingError
 from services.document_service import get_document_service, DocumentGenerationError
+
+# Import settings
+from config import get_settings
 
 # Setup logging
 logging.basicConfig(
@@ -29,43 +35,220 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # ═══════════════════════════════════════════════════════
 
-API_VERSION = "1.0.0"
-API_TITLE = "AI EduAnalytics API"
-API_DESCRIPTION = "AI-powered educational test analysis and document generation"
-
-# Cleanup endpoint protection (optional)
-CLEANUP_API_KEY = os.getenv("CLEANUP_API_KEY")  # Set in .env for production
-
-# Enable/disable API documentation (Swagger/OpenAPI)
-# Set ENABLE_DOCS=false in production to disable /docs endpoint
-ENABLE_DOCS = os.getenv("ENABLE_DOCS", "true").lower() == "true"
-
+# Get settings (validated on first access)
+settings = get_settings()
 
 # Initialize FastAPI app
 # API documentation (/docs) is enabled by default for development
-# Set ENABLE_DOCS=false to disable in production
+# Set ENABLE_DOCS=false in production to disable /docs endpoint
 app = FastAPI(
-    title=API_TITLE,
-    description=API_DESCRIPTION,
-    version=API_VERSION,
-    docs_url="/docs" if ENABLE_DOCS else None,
-    redoc_url="/redoc" if ENABLE_DOCS else None
+    title=settings.api_title,
+    description=settings.api_description,
+    version=settings.api_version,
+    docs_url="/docs" if settings.enable_docs else None,
+    redoc_url="/redoc" if settings.enable_docs else None
 )
 
 # CORS - Allow React app to call this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite default
-        "http://localhost:5174",  # Alternative Vite port
-        "http://localhost:5175",  # Alternative Vite port
-        "http://localhost:5176",  # Alternative Vite port (current)
-        "http://localhost:3000",  # Create React App default
-    ],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ═══════════════════════════════════════════════════════
+# EXCEPTION HANDLERS
+# ═══════════════════════════════════════════════════════
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """
+    Handle HTTP exceptions (404, 400, 403, etc.)
+    
+    Args:
+        request: FastAPI request object
+        exc: HTTP exception
+    
+    Returns:
+        JSONResponse with error details
+    """
+    logger.error(f"HTTP error: {exc.status_code} - {exc.detail}")
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+            "status_code": exc.status_code,
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url.path),
+        }
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """
+    Handle request validation errors (Pydantic validation failures)
+    
+    Args:
+        request: FastAPI request object
+        exc: Validation error
+    
+    Returns:
+        JSONResponse with validation error details
+    """
+    logger.error(f"Validation error: {exc.errors()}")
+    
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": "Validation error",
+            "detail": exc.errors(),
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url.path),
+        }
+    )
+
+
+@app.exception_handler(SupabaseConnectionError)
+async def supabase_exception_handler(request: Request, exc: SupabaseConnectionError):
+    """
+    Handle Supabase connection errors
+    
+    Args:
+        request: FastAPI request object
+        exc: Supabase connection error
+    
+    Returns:
+        JSONResponse with error details
+    """
+    logger.error(f"Supabase connection error: {str(exc)}")
+    
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "error": "Database connection error",
+            "detail": str(exc),
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url.path),
+        }
+    )
+
+
+@app.exception_handler(GeminiAPIError)
+async def gemini_exception_handler(request: Request, exc: GeminiAPIError):
+    """
+    Handle Gemini API errors
+    
+    Args:
+        request: FastAPI request object
+        exc: Gemini API error
+    
+    Returns:
+        JSONResponse with error details
+    """
+    logger.error(f"Gemini API error: {str(exc)}")
+    
+    return JSONResponse(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        content={
+            "error": "AI service error",
+            "detail": str(exc),
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url.path),
+        }
+    )
+
+
+@app.exception_handler(ParsingError)
+async def parsing_exception_handler(request: Request, exc: ParsingError):
+    """
+    Handle AI response parsing errors
+    
+    Args:
+        request: FastAPI request object
+        exc: Parsing error
+    
+    Returns:
+        JSONResponse with error details
+    """
+    logger.error(f"Parsing error: {str(exc)}")
+    
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": "AI response parsing error",
+            "detail": str(exc),
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url.path),
+        }
+    )
+
+
+@app.exception_handler(DocumentGenerationError)
+async def document_exception_handler(request: Request, exc: DocumentGenerationError):
+    """
+    Handle document generation errors
+    
+    Args:
+        request: FastAPI request object
+        exc: Document generation error
+    
+    Returns:
+        JSONResponse with error details
+    """
+    logger.error(f"Document generation error: {str(exc)}")
+    
+    # Check if it's a "not found" error (404)
+    error_message = str(exc)
+    if "not found" in error_message.lower() or "no templates" in error_message.lower():
+        status_code = status.HTTP_404_NOT_FOUND
+    else:
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": "Document generation error",
+            "detail": error_message,
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url.path),
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """
+    Handle all other unexpected exceptions
+    
+    Args:
+        request: FastAPI request object
+        exc: Exception
+    
+    Returns:
+        JSONResponse with generic error message
+    """
+    logger.error(f"Unexpected error: {str(exc)}", exc_info=True)
+    
+    # Don't expose internal error details in production
+    if settings.environment == "production":
+        error_detail = "Internal server error"
+    else:
+        error_detail = str(exc)
+    
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": "Internal server error",
+            "detail": error_detail,
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": str(request.url.path),
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════
@@ -161,9 +344,35 @@ def sanitize_filename(text: str, max_length: int = 100) -> str:
 
 class GenerateReportRequest(BaseModel):
     """Request model for generating test analysis report"""
-    test_id: str
-    class_id: str
-    teacher_name: Optional[str] = None
+    test_id: str = Field(..., min_length=1, max_length=100, description="Test ID (UUID or string identifier)")
+    class_id: str = Field(..., min_length=1, max_length=100, description="Class ID (UUID or string identifier)")
+    teacher_name: Optional[str] = Field(None, max_length=200, description="Optional teacher name")
+    
+    @field_validator('test_id', 'class_id')
+    @classmethod
+    def validate_ids(cls, v: str) -> str:
+        """Validate that IDs are not empty and don't contain dangerous characters"""
+        if not v or not v.strip():
+            raise ValueError("ID cannot be empty")
+        # Remove whitespace
+        v = v.strip()
+        # Basic security: prevent injection attempts
+        if any(char in v for char in ['<', '>', '&', '"', "'", ';', '(', ')']):
+            raise ValueError("ID contains invalid characters")
+        return v
+    
+    @field_validator('teacher_name')
+    @classmethod
+    def validate_teacher_name(cls, v: Optional[str]) -> Optional[str]:
+        """Validate teacher name if provided"""
+        if v is None:
+            return v
+        v = v.strip()
+        if len(v) == 0:
+            return None
+        if len(v) > 200:
+            raise ValueError("Teacher name must be 200 characters or less")
+        return v
 
 
 class HealthResponse(BaseModel):
@@ -183,10 +392,43 @@ class TemplateInfo(BaseModel):
 
 class AISettings(BaseModel):
     """AI Settings configuration"""
-    teacher_name: Optional[str] = None
-    subject: Optional[str] = None
-    temperature: Optional[float] = 0.7
-    max_output_tokens: Optional[int] = 2048
+    teacher_name: Optional[str] = Field(None, max_length=200, description="Teacher name")
+    subject: Optional[str] = Field(None, max_length=200, description="Subject name")
+    temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="AI temperature (0.0-2.0)")
+    max_output_tokens: Optional[int] = Field(2048, ge=1, le=8192, description="Maximum output tokens (1-8192)")
+    
+    @field_validator('teacher_name', 'subject')
+    @classmethod
+    def validate_string_fields(cls, v: Optional[str]) -> Optional[str]:
+        """Validate string fields - trim whitespace and check length"""
+        if v is None:
+            return v
+        v = v.strip()
+        if len(v) == 0:
+            return None
+        if len(v) > 200:
+            raise ValueError("Field must be 200 characters or less")
+        return v
+    
+    @field_validator('temperature')
+    @classmethod
+    def validate_temperature(cls, v: Optional[float]) -> float:
+        """Validate temperature is in valid range"""
+        if v is None:
+            return 0.7
+        if not (0.0 <= v <= 2.0):
+            raise ValueError("Temperature must be between 0.0 and 2.0")
+        return v
+    
+    @field_validator('max_output_tokens')
+    @classmethod
+    def validate_max_tokens(cls, v: Optional[int]) -> int:
+        """Validate max_output_tokens is in valid range"""
+        if v is None:
+            return 2048
+        if not (1 <= v <= 8192):
+            raise ValueError("max_output_tokens must be between 1 and 8192")
+        return v
 
 
 # Removed SetDefaultTemplateRequest - no longer using default template concept
@@ -206,13 +448,13 @@ async def root():
         "templates": "/api/templates"
     }
     
-    if ENABLE_DOCS:
+    if settings.enable_docs:
         endpoints["docs"] = "/docs"
     
     return {
-        "name": API_TITLE,
-        "version": API_VERSION,
-        "description": API_DESCRIPTION,
+        "name": settings.api_title,
+        "version": settings.api_version,
+        "description": settings.api_description,
         "endpoints": endpoints
     }
 
@@ -224,11 +466,11 @@ async def health_check():
     Verifies that all required services are configured
     """
     try:
-        # Check environment variables
-        gemini_configured = bool(os.getenv("GEMINI_API_KEY"))
+        # Check environment variables from settings
+        gemini_configured = bool(settings.gemini_api_key)
         supabase_configured = bool(
-            os.getenv("SUPABASE_URL") and 
-            (os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY"))
+            settings.supabase_url and 
+            (settings.supabase_anon_key or settings.supabase_key)
         )
         
         # Try to initialize services
@@ -252,7 +494,7 @@ async def health_check():
             status=status,
             gemini_configured=gemini_configured and gemini_working,
             supabase_configured=supabase_configured and supabase_working,
-            version=API_VERSION
+            version=settings.api_version
         )
         
     except Exception as e:
@@ -261,7 +503,7 @@ async def health_check():
             status="unhealthy",
             gemini_configured=False,
             supabase_configured=False,
-            version=API_VERSION
+            version=settings.api_version
         )
 
 
@@ -447,8 +689,8 @@ async def generate_report(request: GenerateReportRequest):
 
 @app.post("/api/cleanup")
 async def cleanup_old_documents(
-    max_age_hours: int = 24,
-    x_api_key: Optional[str] = Header(None)
+    max_age_hours: int = Query(24, ge=1, le=8760, description="Maximum age in hours (1-8760, default: 24)"),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key")
 ):
     """
     Clean up old generated documents
@@ -467,7 +709,7 @@ async def cleanup_old_documents(
     logger.info(f"Cleanup request: max_age_hours={max_age_hours}")
     
     # Check API key if configured
-    if CLEANUP_API_KEY:
+    if settings.cleanup_api_key:
         if not x_api_key:
             logger.warning("Cleanup attempt without API key")
             raise HTTPException(
@@ -475,7 +717,7 @@ async def cleanup_old_documents(
                 detail="API key required. Provide X-API-Key header."
             )
         
-        if x_api_key != CLEANUP_API_KEY:
+        if x_api_key != settings.cleanup_api_key:
             logger.warning("Cleanup attempt with invalid API key")
             raise HTTPException(
                 status_code=403,
@@ -627,7 +869,9 @@ async def upload_template(
 # Removed /api/templates/default endpoints - no longer using default template concept
 
 @app.delete("/api/templates/{template_name}")
-async def delete_template(template_name: str):
+async def delete_template(
+    template_name: str = FastAPIPath(..., min_length=1, max_length=255, description="Template filename")
+):
     """
     Delete a template file
     
@@ -704,7 +948,9 @@ async def delete_template(template_name: str):
 # ═══════════════════════════════════════════════════════
 
 @app.get("/api/templates/{template_name}/variables")
-async def get_template_variables(template_name: str):
+async def get_template_variables(
+    template_name: str = FastAPIPath(..., min_length=1, max_length=255, description="Template filename")
+):
     """
     Get all variables used in a template file (for debugging)
     
@@ -837,9 +1083,9 @@ async def get_template_variables(template_name: str):
 
 @app.post("/api/analytics/{test_id}/recalculate")
 async def recalculate_analytics(
-    test_id: str,
-    class_id: str = Query(...),
-    force: bool = Query(False)
+    test_id: str = FastAPIPath(..., min_length=1, max_length=100, description="Test ID"),
+    class_id: str = Query(..., min_length=1, max_length=100, description="Class ID"),
+    force: bool = Query(False, description="Force recalculate even if cache exists")
 ):
     """
     Recalculate and cache analytics for a test
@@ -889,7 +1135,9 @@ async def recalculate_analytics(
 
 
 @app.delete("/api/analytics/{test_id}/cache")
-async def invalidate_analytics_cache(test_id: str):
+async def invalidate_analytics_cache(
+    test_id: str = FastAPIPath(..., min_length=1, max_length=100, description="Test ID")
+):
     """
     Invalidate analytics cache for a test
     
@@ -932,9 +1180,25 @@ async def invalidate_analytics_cache(test_id: str):
         )
 
 
+class InvalidateCacheRequest(BaseModel):
+    """Request model for invalidating cache by result"""
+    test_id: str = Field(..., min_length=1, max_length=100, description="Test ID")
+    
+    @field_validator('test_id')
+    @classmethod
+    def validate_test_id(cls, v: str) -> str:
+        """Validate test_id"""
+        if not v or not v.strip():
+            raise ValueError("test_id cannot be empty")
+        v = v.strip()
+        if any(char in v for char in ['<', '>', '&', '"', "'", ';', '(', ')']):
+            raise ValueError("test_id contains invalid characters")
+        return v
+
+
 @app.post("/api/analytics/invalidate-by-result")
 async def invalidate_cache_by_result(
-    test_id: str
+    request: InvalidateCacheRequest
 ):
     """
     Invalidate analytics cache when a result is added, updated, or deleted
@@ -948,19 +1212,19 @@ async def invalidate_cache_by_result(
     Returns:
         Success message
     """
-    logger.info(f"Invalidating cache by result mutation: test_id={test_id}")
+    logger.info(f"Invalidating cache by result mutation: test_id={request.test_id}")
     
     try:
         supabase_service = get_supabase_service()
         
-        success = supabase_service.invalidate_analytics(test_id)
+        success = supabase_service.invalidate_analytics(request.test_id)
         
         if success:
-            logger.info(f"Cache invalidated after result mutation for test: {test_id}")
+            logger.info(f"Cache invalidated after result mutation for test: {request.test_id}")
             return {
                 "status": "success",
                 "message": "Cache invalidated successfully after result mutation",
-                "test_id": test_id
+                "test_id": request.test_id
             }
         else:
             raise HTTPException(
@@ -1066,26 +1330,21 @@ async def update_ai_settings(settings: AISettings):
 async def startup_event():
     """Actions to perform on application startup"""
     logger.info("="*70)
-    logger.info(f"{API_TITLE} v{API_VERSION} Starting...")
+    logger.info(f"{settings.api_title} v{settings.api_version} Starting...")
     logger.info("="*70)
     
-    # Check environment
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
-    cleanup_protected = bool(CLEANUP_API_KEY)
+    # Check environment (settings are already validated)
+    cleanup_protected = bool(settings.cleanup_api_key)
     
-    if not gemini_key:
-        logger.warning("Gemini API Key is missing")
-    if not supabase_url:
-        logger.warning("Supabase URL is missing")
-    if not supabase_key:
-        logger.warning("Supabase Key is missing")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Gemini API Key: {'Set' if settings.gemini_api_key else 'Missing'}")
+    logger.info(f"Supabase URL: {'Set' if settings.supabase_url else 'Missing'}")
+    logger.info(f"Supabase Key: {'Set' if (settings.supabase_anon_key or settings.supabase_key) else 'Missing'}")
     if not cleanup_protected:
         logger.warning("Cleanup Protection is disabled (dev mode)")
     
     logger.info("Server ready!")
-    if ENABLE_DOCS:
+    if settings.enable_docs:
         logger.info("API docs available at: http://localhost:8000/docs")
     logger.info("="*70)
 
@@ -1093,7 +1352,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Actions to perform on application shutdown"""
-    logger.info(f"Shutting down {API_TITLE}...")
+    logger.info(f"Shutting down {settings.api_title}...")
 
 
 # ═══════════════════════════════════════════════════════
@@ -1103,11 +1362,9 @@ async def shutdown_event():
 if __name__ == "__main__":
     import uvicorn
     
-    port = int(os.getenv("PORT", 8000))
-    
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=port,
+        port=settings.port,
         log_level="info"
     )

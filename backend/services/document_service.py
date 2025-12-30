@@ -10,14 +10,17 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 
 try:
     from docxtpl import DocxTemplate
 except ImportError:
     raise ImportError("docxtpl not installed. Run: pip install python-docx-template")
 
-load_dotenv()
+# Import settings
+from config import get_settings
+
+# Import utilities
+from utils.datetime_utils import get_current_timestamp, format_timestamp, sanitize_filename
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -41,15 +44,16 @@ class DocumentService:
         self.output_dir = self.base_dir / "output"
         
         # Default school year
-        self.default_school_year = datetime.now().strftime("%Y/%Y")
+        self.default_school_year = get_current_timestamp("school_year")
         
         # Create directories if they don't exist
         self.templates_dir.mkdir(exist_ok=True)
         self.output_dir.mkdir(exist_ok=True)
         
         # Supabase storage settings (optional)
-        self.use_supabase_storage = os.getenv("USE_SUPABASE_STORAGE", "false").lower() == "true"
-        self.storage_bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "templates")
+        settings = get_settings()
+        self.use_supabase_storage = settings.use_supabase_storage
+        self.storage_bucket = settings.supabase_storage_bucket
         
         # Try to import supabase service for storage
         self.supabase_service = None
@@ -490,7 +494,7 @@ class DocumentService:
         
         # Add test_name and date
         context['test_name'] = test_data.get('test_name', test_data.get('test', {}).get('name', 'Тест'))
-        context['date'] = datetime.now().strftime('%d.%m.%Y')
+        context['date'] = get_current_timestamp("date")
         
         return context
     
@@ -509,17 +513,12 @@ class DocumentService:
         class_name = test_data.get('class_name', 'Unknown')
         subject = test_data.get('subject', 'Test')
         
-        # Clean up names - keep only alphanumeric, dash, underscore, dot
-        # Replace all other characters with underscore
-        class_name_clean = re.sub(r'[^\w\-_\.]', '_', class_name)
-        subject_clean = re.sub(r'[^\w\-_\.]', '_', subject)
-        
-        # Remove multiple consecutive underscores
-        class_name_clean = re.sub(r'_+', '_', class_name_clean).strip('_')
-        subject_clean = re.sub(r'_+', '_', subject_clean).strip('_')
+        # Sanitize names using utility function
+        class_name_clean = sanitize_filename(class_name)
+        subject_clean = sanitize_filename(subject)
         
         # Add timestamp for uniqueness
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = get_current_timestamp("filename")
         
         filename = f"Analiz_{class_name_clean}_{subject_clean}_{timestamp}.docx"
         
@@ -586,7 +585,7 @@ class DocumentService:
                         templates.append({
                             'name': template_info.get('name', ''),
                             'size': template_info.get('size', 0),
-                            'modified_date': template_info.get('updated_at') or template_info.get('created_at') or datetime.now().isoformat(),
+                            'modified_date': template_info.get('updated_at') or template_info.get('created_at') or get_current_timestamp("iso"),
                         })
                     storage_success = True
                     logger.info(f"Found {len(templates)} templates in Supabase Storage")
@@ -605,7 +604,7 @@ class DocumentService:
                         templates.append({
                             'name': template_path.name,
                             'size': stat.st_size,
-                            'modified_date': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            'modified_date': format_timestamp(datetime.fromtimestamp(stat.st_mtime), "iso"),
                         })
                     except Exception as e:
                         logger.warning(f"Error reading template {template_path.name}: {e}")
@@ -679,13 +678,8 @@ class DocumentService:
         """
         logger.info(f"Uploading template: {filename}")
         
-        # Sanitize filename
-        safe_filename = re.sub(r'[^\w\-_\.]', '_', filename)
-        safe_filename = re.sub(r'_+', '_', safe_filename).strip('_')
-        
-        # Ensure .docx extension
-        if not safe_filename.lower().endswith('.docx'):
-            safe_filename += '.docx'
+        # Sanitize filename using utility function
+        safe_filename = sanitize_filename(filename, ensure_extension='.docx')
         
         # Try to upload to Supabase Storage first
         if self.use_supabase_storage and self.supabase_service:

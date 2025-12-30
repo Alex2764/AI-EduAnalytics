@@ -428,6 +428,13 @@ input:focus, select:focus, textarea:focus {
   max-height: 95vh;
 }
 
+.modal:has(.ai-settings-content) .modal-content {
+  width: 58%;
+  max-width: 58%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .modal-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -2218,7 +2225,7 @@ body.class-form-modal-open .footer-header-style {
 
 .info-icon-tooltip-text {
   visibility: hidden;
-  width: 1000px;
+  width: 600px;
   max-width: 90vw;
   background-color: #1f2937;
   color: #fff;

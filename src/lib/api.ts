@@ -2,9 +2,21 @@
  * API helper for backend API calls
  */
 
+import { getResponseErrorMessage, isBackendConnectionError } from '@/utils/errorHandler';
+import { logger } from '@/utils/logger';
+
 // Backend API base URL - defaults to localhost:8000
 // To override, set VITE_API_BASE_URL in .env file
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+/**
+ * Handle fetch response errors consistently
+ */
+async function handleFetchError(response: Response, defaultMessage: string): Promise<never> {
+  const errorMessage = await getResponseErrorMessage(response, defaultMessage);
+  logger.error(`API error (${response.status}):`, errorMessage);
+  throw new Error(errorMessage);
+}
 
 export interface TemplateInfo {
   name: string;
@@ -34,36 +46,49 @@ export const templateAPI = {
    * Get list of available templates
    */
   async getTemplates(): Promise<TemplateInfo[]> {
-    const response = await fetch(`${API_BASE_URL}/api/templates`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/templates`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || 'Failed to fetch templates');
+      if (!response.ok) {
+        await handleFetchError(response, 'Грешка при зареждане на шаблони');
+      }
+
+      return response.json();
+    } catch (error) {
+      // Re-throw network errors with better message
+      if (error instanceof Error && isBackendConnectionError(error.message)) {
+        throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+      }
+      throw error;
     }
-
-    return response.json();
   },
 
   /**
    * Upload a new template
    */
   async uploadTemplate(file: File): Promise<void> {
-    const formData = new FormData();
-    formData.append('file', file);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    const response = await fetch(`${API_BASE_URL}/api/templates/upload`, {
-      method: 'POST',
-      body: formData,
-    });
+      const response = await fetch(`${API_BASE_URL}/api/templates/upload`, {
+        method: 'POST',
+        body: formData,
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || 'Failed to upload template');
+      if (!response.ok) {
+        await handleFetchError(response, 'Грешка при качване на шаблон');
+      }
+    } catch (error) {
+      if (error instanceof Error && isBackendConnectionError(error.message)) {
+        throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+      }
+      throw error;
     }
   },
 
@@ -73,16 +98,22 @@ export const templateAPI = {
    * Delete a template
    */
   async deleteTemplate(templateName: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/templates/${encodeURIComponent(templateName)}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/templates/${encodeURIComponent(templateName)}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || 'Failed to delete template');
+      if (!response.ok) {
+        await handleFetchError(response, 'Грешка при изтриване на шаблон');
+      }
+    } catch (error) {
+      if (error instanceof Error && isBackendConnectionError(error.message)) {
+        throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+      }
+      throw error;
     }
   },
 };
@@ -96,39 +127,51 @@ export const aiSettingsAPI = {
    * Get AI settings
    */
   async getAISettings(): Promise<AISettings> {
-    const response = await fetch(`${API_BASE_URL}/api/ai-settings`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai-settings`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || 'Failed to fetch AI settings');
+      if (!response.ok) {
+        await handleFetchError(response, 'Грешка при зареждане на AI настройки');
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error && isBackendConnectionError(error.message)) {
+        throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+      }
+      throw error;
     }
-
-    return response.json();
   },
 
   /**
    * Update AI settings
    */
   async updateAISettings(settings: Partial<AISettings>): Promise<AISettings> {
-    const response = await fetch(`${API_BASE_URL}/api/ai-settings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(settings),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai-settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || 'Failed to update AI settings');
+      if (!response.ok) {
+        await handleFetchError(response, 'Грешка при запазване на AI настройки');
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error && isBackendConnectionError(error.message)) {
+        throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+      }
+      throw error;
     }
-
-    return response.json();
   },
 };
 
@@ -165,21 +208,15 @@ export async function generateReport(params: GenerateReportParams): Promise<void
     });
 
   if (!response.ok) {
-    let errorMessage = `Failed to generate report: ${response.statusText}`;
-    try {
-      const error = await response.json();
-      errorMessage = error.detail || error.message || errorMessage;
-    } catch (parseError) {
-      errorMessage = `Failed to generate report: ${response.status} ${response.statusText}`;
+    // Handle 404 errors for missing templates with user-friendly message
+    if (response.status === 404) {
+      const errorMessage = await getResponseErrorMessage(response, 'Грешка при генериране на анализ');
+      if (errorMessage.includes('No templates available') || errorMessage.includes('not found') || errorMessage.includes('No templates')) {
+        throw new Error('Няма налични шаблони. Моля, качете шаблон от AI Settings преди да генерирате анализ.');
+      }
     }
     
-    if (response.status === 404 && errorMessage.includes('No templates available')) {
-      errorMessage = 'Няма налични шаблони. Моля, качете шаблон от AI Settings преди да генерирате анализ.';
-    } else if (response.status === 404 && (errorMessage.includes('not found') || errorMessage.includes('No templates'))) {
-      errorMessage = 'Шаблонът не е намерен. Моля, качете шаблон от AI Settings.';
-    }
-    
-    throw new Error(errorMessage);
+    await handleFetchError(response, 'Грешка при генериране на анализ');
   }
 
   // Get the filename from Content-Disposition header or use default
@@ -203,8 +240,12 @@ export async function generateReport(params: GenerateReportParams): Promise<void
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
-  } catch (fetchError) {
-    throw fetchError;
+  } catch (error) {
+    // Re-throw network errors with better message
+    if (error instanceof Error && isBackendConnectionError(error.message)) {
+      throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+    }
+    throw error;
   }
 }
 

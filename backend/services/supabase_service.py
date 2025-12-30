@@ -8,10 +8,12 @@ import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from supabase import create_client, Client
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Import settings
+from config import get_settings
+
+# Import utilities
+from utils.datetime_utils import parse_timestamp, is_timestamp_newer, get_current_timestamp
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,8 +40,9 @@ class SupabaseService:
                               If None, will try common names automatically.
         """
         
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
+        settings = get_settings()
+        supabase_url = settings.supabase_url
+        supabase_key = settings.supabase_anon_key or settings.supabase_key
         
         if not supabase_url or not supabase_key:
             error_msg = "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment variables"
@@ -95,8 +98,6 @@ class SupabaseService:
                     # Check if any results were added/updated after cache was calculated
                     try:
                         # Get the most recent result creation time for this test
-                        from datetime import datetime
-                        
                         latest_result = (
                             self.client.table("results")
                             .select("created_at")
@@ -114,68 +115,18 @@ class SupabaseService:
                             # Both timestamps must exist for comparison
                             if latest_result_time and cache_timestamp:
                                 try:
-                                    # Parse timestamps safely - handle various formats (ISO, PostgreSQL, etc.)
-                                    cache_dt = None
-                                    latest_dt = None
-                                    
-                                    def parse_timestamp(ts):
-                                        """Parse timestamp string to datetime object, handling various formats"""
-                                        if isinstance(ts, datetime):
-                                            return ts
-                                        
-                                        if not isinstance(ts, str):
-                                            return None
-                                        
-                                        # Try ISO format first (most common)
-                                        try:
-                                            # Handle 'Z' timezone indicator
-                                            ts_normalized = ts.replace('Z', '+00:00')
-                                            return datetime.fromisoformat(ts_normalized)
-                                        except (ValueError, AttributeError):
-                                            pass
-                                        
-                                        # Try without timezone info
-                                        try:
-                                            return datetime.fromisoformat(ts)
-                                        except (ValueError, AttributeError):
-                                            pass
-                                        
-                                        # Try common PostgreSQL format: "2024-01-01 12:00:00"
-                                        # Try common formats
-                                        for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", 
-                                                   "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f",
-                                                   "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S.%fZ"]:
-                                            try:
-                                                return datetime.strptime(ts, fmt)
-                                            except ValueError:
-                                                continue
-                                        
-                                        return None
-                                    
-                                    # Parse both timestamps
-                                    cache_dt = parse_timestamp(cache_timestamp)
-                                    latest_dt = parse_timestamp(latest_result_time)
-                                    
-                                    # Compare timestamps if both parsed successfully
-                                    if cache_dt and latest_dt:
-                                        # If latest result is newer than cache, invalidate cache
-                                        # Add 1 second tolerance to handle timestamp precision differences
-                                        time_diff = (latest_dt - cache_dt).total_seconds()
-                                        if time_diff > 1.0:  # Result is at least 1 second newer
-                                            logger.info(f"Cache invalidated automatically: results modified after cache was calculated")
-                                            logger.debug(f"Cache timestamp: {cache_timestamp}, Latest result: {latest_result_time} (diff: {time_diff:.1f}s)")
-                                            self.invalidate_analytics(test_id)
-                                            cached_analytics = None  # Force recalculation
-                                        else:
-                                            logger.debug(f"Cache is still valid (latest result: {latest_result_time} <= cache: {cache_timestamp})")
+                                    # Use utility function to check if latest result is newer than cache
+                                    if is_timestamp_newer(latest_result_time, cache_timestamp, tolerance_seconds=1.0):
+                                        logger.info(f"Cache invalidated automatically: results modified after cache was calculated")
+                                        logger.debug(f"Cache timestamp: {cache_timestamp}, Latest result: {latest_result_time}")
+                                        self.invalidate_analytics(test_id)
+                                        cached_analytics = None  # Force recalculation
                                     else:
-                                        # Failed to parse one or both timestamps - use cache conservatively
-                                        logger.debug(f"Could not parse timestamps for comparison, using cache anyway")
-                                        logger.debug(f"   Cache: {cache_timestamp} ({type(cache_timestamp).__name__}), Result: {latest_result_time} ({type(latest_result_time).__name__})")
-                                        
+                                        logger.debug(f"Cache is still valid (latest result: {latest_result_time} <= cache: {cache_timestamp})")
                                 except Exception as parse_error:
                                     # Any other error during parsing/comparison - use cache conservatively
                                     logger.warning(f"Error comparing timestamps: {parse_error}, will use cache anyway (fail-safe)")
+                                    logger.debug(f"   Cache: {cache_timestamp} ({type(cache_timestamp).__name__}), Result: {latest_result_time} ({type(latest_result_time).__name__})")
                             else:
                                 # Missing timestamp - use cache conservatively
                                 logger.debug(f"Missing timestamp(s) for cache validation, using cache anyway")
@@ -451,7 +402,18 @@ class SupabaseService:
             return {}
     
     def _get_test(self, test_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch test by ID"""
+        """
+        Fetch test by ID from Supabase
+        
+        Args:
+            test_id: ID of the test to fetch
+        
+        Returns:
+            Test dictionary if found, None otherwise
+        
+        Raises:
+            Exception: If database query fails
+        """
         import json
         
         logger.debug(f"Fetching test: {test_id}")
@@ -492,7 +454,18 @@ class SupabaseService:
             raise
     
     def _get_class(self, class_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch class by ID"""
+        """
+        Fetch class by ID from Supabase
+        
+        Args:
+            class_id: ID of the class to fetch
+        
+        Returns:
+            Class dictionary if found, None otherwise
+        
+        Raises:
+            Exception: If database query fails
+        """
         
         logger.debug(f"Fetching class: {class_id}")
         
@@ -511,7 +484,18 @@ class SupabaseService:
             raise
     
     def _get_students_in_class(self, class_id: str) -> List[Dict[str, Any]]:
-        """Fetch all students in a class"""
+        """
+        Fetch all students in a class from Supabase
+        
+        Args:
+            class_id: ID of the class
+        
+        Returns:
+            List of student dictionaries
+        
+        Raises:
+            Exception: If database query fails
+        """
         
         logger.debug(f"Fetching students in class: {class_id}")
         
@@ -535,6 +519,15 @@ class SupabaseService:
         2. "test_results"
         3. "results"
         4. "student_results"
+        
+        Args:
+            test_id: ID of the test
+        
+        Returns:
+            List of test result dictionaries
+        
+        Raises:
+            SupabaseConnectionError: If no table is accessible
         """
         
         logger.debug(f"Fetching results for test: {test_id}")
@@ -1176,19 +1169,17 @@ class SupabaseService:
         logger.info(f"Saving analytics to cache for test: {test_id}")
         
         try:
-            from datetime import datetime
-            
             # Prepare data for upsert
             analytics_data = {
                 "test_id": test_id,
                 "statistics": statistics,
                 "question_success_rates": question_success_rates,
-                "updated_at": datetime.now().isoformat()
+                "updated_at": get_current_timestamp("iso")
             }
             
             if ai_analysis:
                 analytics_data["ai_analysis"] = ai_analysis
-                analytics_data["ai_generated_at"] = datetime.now().isoformat()
+                analytics_data["ai_generated_at"] = get_current_timestamp("iso")
             
             # Upsert (insert or update)
             response = self.client.table("test_analytics").upsert(analytics_data).execute()
@@ -1479,10 +1470,13 @@ _supabase_service: Optional[SupabaseService] = None
 
 def get_supabase_service(results_table_name: Optional[str] = None) -> SupabaseService:
     """
-    Get or create Supabase service instance
+    Get or create Supabase service instance (singleton pattern)
     
     Args:
         results_table_name: Optional custom table name for test results
+    
+    Returns:
+        SupabaseService instance
     """
     global _supabase_service
     if _supabase_service is None:
