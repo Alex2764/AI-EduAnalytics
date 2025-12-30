@@ -10,17 +10,38 @@ Create a `.env` file in the `backend/` directory with the following variables:
 
 | Variable | Description | Where to get it |
 |----------|-------------|-----------------|
-| `GEMINI_API_KEY` | Google Gemini AI API key | [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | `SUPABASE_URL` | Your Supabase project URL | [Supabase Dashboard → Settings → API](https://supabase.com/dashboard) |
 | `SUPABASE_ANON_KEY` | Supabase anonymous/public key | [Supabase Dashboard → Settings → API](https://supabase.com/dashboard) |
+
+**AI Provider Configuration:**
+- You need to set **either** `GEMINI_API_KEY` **or** `GROQ_API_KEY` (not both)
+- Set `AI_PROVIDER=groq` to use Groq (recommended - free with high rate limits)
+- Set `AI_PROVIDER=gemini` to use Google Gemini (default)
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `AI_PROVIDER` | AI provider to use: "groq" or "gemini" | `"gemini"` |
+| `GEMINI_API_KEY` | Google Gemini AI API key (required if AI_PROVIDER=gemini) | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `GROQ_API_KEY` | Groq AI API key (required if AI_PROVIDER=groq) | [Groq Console](https://console.groq.com/) - **FREE with 30 req/sec** |
+| `GEMINI_MODEL` | Gemini model to use (e.g., "gemini-1.5-flash", "gemini-1.5-pro") | `None` (auto-detect) |
+| `GROQ_MODEL` | Groq model to use (e.g., "llama-3.3-70b-versatile", "mixtral-8x7b-32768") | `"llama-3.3-70b-versatile"` |
 | `PORT` | Server port | `8000` |
 | `HOST` | Server host | `0.0.0.0` |
 | `CLEANUP_API_KEY` | API key for cleanup endpoint protection | `None` (disabled) |
+
+### 🆓 Using Groq (Recommended - Free!)
+
+Groq offers a **completely free tier** with very high rate limits (30 requests/second):
+1. Sign up at [Groq Console](https://console.groq.com/)
+2. Get your free API key
+3. Add to `.env`:
+   ```
+   AI_PROVIDER=groq
+   GROQ_API_KEY=your_groq_api_key_here
+   ```
+4. No credit card required! 🎉
 
 ### Setup Instructions
 

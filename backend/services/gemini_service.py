@@ -22,7 +22,10 @@ logger = logging.getLogger(__name__)
 
 class GeminiAPIError(Exception):
     """Custom exception for Gemini API errors"""
-    pass
+    def __init__(self, message: str, is_rate_limit: bool = False, retry_after: Optional[int] = None):
+        super().__init__(message)
+        self.is_rate_limit = is_rate_limit
+        self.retry_after = retry_after  # seconds
 
 
 class ParsingError(Exception):
@@ -44,61 +47,73 @@ class GeminiService:
         try:
             genai.configure(api_key=api_key)
             
-            # First, check which models are available via API
-            logger.info("Checking available Gemini models...")
-            working_model = None
-            try:
-                available_models = genai.list_models()
-                model_names_list = [model.name for model in available_models 
-                                  if 'generateContent' in model.supported_generation_methods]
-                logger.debug(f"Found {len(model_names_list)} available models")
-                
-                # Prefer models with "flash" or "1.5" in the name for speed
-                # Try to find a preferred model that's available and test it
-                preferred_models = [
-                    'gemini-1.5-flash',
-                    'gemini-1.5-flash-latest', 
-                    'gemini-1.5-pro',
-                    'gemini-pro',
-                    'gemini-flash-001',
-                    'gemini-flash'
-                ]
-                
-                # Try each preferred model by testing if we can create it
-                for preferred in preferred_models:
-                    # Check if model exists in the list (case insensitive, partial match)
-                    matching_models = [name for name in model_names_list if preferred.lower() in name.lower()]
-                    if matching_models:
-                        # Try the first matching model
-                        test_model_name = matching_models[0]
-                        # Extract short name for GenerativeModel (it should work with or without models/ prefix)
-                        short_test_name = test_model_name.replace('models/', '') if 'models/' in test_model_name else test_model_name
-                        try:
-                            logger.debug(f"Testing model: {short_test_name}...")
-                            test_model = genai.GenerativeModel(short_test_name)
-                            working_model = short_test_name
-                            logger.info(f"Initialized model: {short_test_name}")
-                            break
-                        except Exception as test_error:
-                            logger.debug(f"Model {short_test_name} failed: {test_error}")
-                            continue
-                
-                # If no preferred found, try first available
-                if not working_model and model_names_list:
-                    first_model = model_names_list[0]
-                    short_first_name = first_model.replace('models/', '') if 'models/' in first_model else first_model
-                    try:
-                        logger.debug(f"Trying first available model: {short_first_name}...")
-                        test_model = genai.GenerativeModel(short_first_name)
-                        working_model = short_first_name
-                        logger.info(f"Using first available model: {short_first_name}")
-                    except Exception as test_error:
-                        logger.warning(f"First model {short_first_name} failed: {test_error}")
-                
-            except Exception as e:
-                logger.warning(f"Could not list models via API: {e}")
-                logger.info("Falling back to manual model list...")
+            # If model is specified in settings, use it directly
+            if settings.gemini_model:
+                logger.info(f"Using specified model from config: {settings.gemini_model}")
+                try:
+                    self.model = genai.GenerativeModel(settings.gemini_model)
+                    logger.info(f"Successfully initialized model: {settings.gemini_model}")
+                    self.model_name = settings.gemini_model
+                except Exception as e:
+                    logger.error(f"Failed to initialize specified model {settings.gemini_model}: {e}")
+                    raise GeminiAPIError(f"Failed to initialize specified model {settings.gemini_model}: {e}")
+            else:
+                # Auto-detect model
+                # First, check which models are available via API
+                logger.info("Checking available Gemini models...")
                 working_model = None
+                try:
+                    available_models = genai.list_models()
+                    model_names_list = [model.name for model in available_models 
+                                      if 'generateContent' in model.supported_generation_methods]
+                    logger.debug(f"Found {len(model_names_list)} available models")
+                    
+                    # Prefer models with "flash" or "1.5" in the name for speed
+                    # Try to find a preferred model that's available and test it
+                    preferred_models = [
+                        'gemini-1.5-flash',
+                        'gemini-1.5-flash-latest', 
+                        'gemini-1.5-pro',
+                        'gemini-pro',
+                        'gemini-flash-001',
+                        'gemini-flash'
+                    ]
+                    
+                    # Try each preferred model by testing if we can create it
+                    for preferred in preferred_models:
+                        # Check if model exists in the list (case insensitive, partial match)
+                        matching_models = [name for name in model_names_list if preferred.lower() in name.lower()]
+                        if matching_models:
+                            # Try the first matching model
+                            test_model_name = matching_models[0]
+                            # Extract short name for GenerativeModel (it should work with or without models/ prefix)
+                            short_test_name = test_model_name.replace('models/', '') if 'models/' in test_model_name else test_model_name
+                            try:
+                                logger.debug(f"Testing model: {short_test_name}...")
+                                test_model = genai.GenerativeModel(short_test_name)
+                                working_model = short_test_name
+                                logger.info(f"Initialized model: {short_test_name}")
+                                break
+                            except Exception as test_error:
+                                logger.debug(f"Model {short_test_name} failed: {test_error}")
+                                continue
+                    
+                    # If no preferred found, try first available
+                    if not working_model and model_names_list:
+                        first_model = model_names_list[0]
+                        short_first_name = first_model.replace('models/', '') if 'models/' in first_model else first_model
+                        try:
+                            logger.debug(f"Trying first available model: {short_first_name}...")
+                            test_model = genai.GenerativeModel(short_first_name)
+                            working_model = short_first_name
+                            logger.info(f"Using first available model: {short_first_name}")
+                        except Exception as test_error:
+                            logger.warning(f"First model {short_first_name} failed: {test_error}")
+                    
+                except Exception as e:
+                    logger.warning(f"Could not list models via API: {e}")
+                    logger.info("Falling back to manual model list...")
+                    working_model = None
             
             # If API listing failed, try manual list
             if not working_model:
@@ -130,15 +145,21 @@ class GeminiService:
                     error_msg = f"Failed to initialize any Gemini model. Last error: {last_error}"
                     logger.error(error_msg)
                     raise GeminiAPIError(error_msg)
+                else:
+                    self.model_name = working_model
             else:
                 logger.info(f"Using model from API list: {working_model}")
                 self.model = genai.GenerativeModel(working_model)
+                self.model_name = working_model
                 
         except GeminiAPIError:
             raise
         except Exception as e:
             logger.error(f"Failed to initialize Gemini: {e}")
             raise GeminiAPIError(f"Failed to initialize Gemini: {e}")
+        
+        # Store settings for later use
+        self.settings = settings
         
         # Configuration
         self.max_retries = 3
@@ -609,6 +630,36 @@ IMPROVEMENT_MEASURES:
                 error_details = str(e)
                 logger.warning(f"Attempt {attempt} failed: {error_type}: {error_details}")
                 
+                # Check for ResourceExhausted (rate limit / quota exceeded)
+                if "ResourceExhausted" in error_type or "429" in error_details or "quota" in error_details.lower():
+                    # Extract retry delay if available
+                    retry_delay = self.retry_delay
+                    if "retry_delay" in error_details.lower() or "retry in" in error_details.lower():
+                        # Try to extract seconds from error message
+                        import re
+                        delay_match = re.search(r'retry.*?(\d+(?:\.\d+)?)\s*s', error_details, re.IGNORECASE)
+                        if delay_match:
+                            retry_delay = max(int(float(delay_match.group(1))), 5)  # At least 5 seconds
+                    
+                    # Create user-friendly error message
+                    user_msg = "Квотата за Gemini API е изчерпана. "
+                    if "free_tier" in error_details.lower():
+                        user_msg += "Безплатният план е изчерпан. "
+                    user_msg += "Моля, проверете вашия план и билинг в Google AI Studio. "
+                    if retry_delay > self.retry_delay:
+                        user_msg += f"Опитайте отново след {retry_delay} секунди."
+                    
+                    # If not last attempt, wait longer for rate limits
+                    if attempt < self.max_retries:
+                        logger.info(f"Rate limit detected. Waiting {retry_delay} seconds before retry...")
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        # All retries failed due to rate limit
+                        error_msg = user_msg
+                        logger.error(f"Rate limit/quota exceeded after {self.max_retries} attempts")
+                        raise GeminiAPIError(error_msg, is_rate_limit=True, retry_after=retry_delay)
+                
                 # Log full traceback for debugging
                 import traceback
                 logger.debug(f"Full traceback:\n{traceback.format_exc()}")
@@ -622,7 +673,15 @@ IMPROVEMENT_MEASURES:
         # All retries failed
         error_type = type(last_error).__name__ if last_error else "Unknown"
         error_details = str(last_error) if last_error else "No error details"
-        error_msg = f"Failed to generate AI analysis after {self.max_retries} attempts: {error_type}: {error_details}"
+        
+        # Create user-friendly error message
+        if "ResourceExhausted" not in error_type and "429" not in error_details:
+            error_msg = f"Неуспешно генериране на AI анализ след {self.max_retries} опита: {error_type}"
+            if len(error_details) < 200:  # Only include details if not too long
+                error_msg += f": {error_details}"
+        else:
+            error_msg = error_details  # Already formatted above
+        
         logger.error(error_msg)
         raise GeminiAPIError(error_msg)
     

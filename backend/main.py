@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Header, UploadFile, File, Form, Query, Path as FastAPIPath, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -18,8 +18,15 @@ from pathlib import Path
 
 # Import services
 from services.supabase_service import get_supabase_service, SupabaseConnectionError
-from services.gemini_service import get_gemini_service, GeminiAPIError, ParsingError
+from services.gemini_service import get_gemini_service, GeminiAPIError
+from services.groq_service import get_groq_service, GroqAPIError
 from services.document_service import get_document_service, DocumentGenerationError
+
+# Import ParsingError (can come from either service)
+try:
+    from services.gemini_service import ParsingError
+except ImportError:
+    from services.groq_service import ParsingError
 
 # Import settings
 from config import get_settings
@@ -558,7 +565,9 @@ async def generate_report(request: GenerateReportRequest):
         # STEP 2: Generate AI analysis
         # ═══════════════════════════════════════════════════
         
-        logger.info("Step 2/3: Generating AI analysis with Google Gemini...")
+        ai_provider = settings.ai_provider
+        provider_name = "Groq" if ai_provider == "groq" else "Google Gemini"
+        logger.info(f"Step 2/3: Generating AI analysis with {provider_name}...")
         
         try:
             # Check if we have cached AI analysis
@@ -570,8 +579,12 @@ async def generate_report(request: GenerateReportRequest):
                 ai_analysis = cached_analytics["ai_analysis"]
             else:
                 logger.info("No cached AI analysis, generating fresh...")
-                gemini_service = get_gemini_service()
-                ai_analysis = gemini_service.generate_analysis(test_data)
+                # Use appropriate AI service based on configuration
+                if ai_provider == "groq":
+                    ai_service = get_groq_service()
+                else:
+                    ai_service = get_gemini_service()
+                ai_analysis = ai_service.generate_analysis(test_data)
                 
                 # Save AI analysis to cache
                 if cached_analytics:
@@ -607,11 +620,14 @@ async def generate_report(request: GenerateReportRequest):
             
             logger.debug(f"AI sections: {list(ai_analysis.keys())}")
             
-        except GeminiAPIError as e:
-            logger.error(f"Gemini API error: {e}")
+        except (GeminiAPIError, GroqAPIError) as e:
+            provider_name = "Groq" if isinstance(e, GroqAPIError) else "Gemini"
+            logger.error(f"{provider_name} API error: {e}")
+            # Return 429 for rate limit errors, 500 for other API errors
+            status_code = 429 if e.is_rate_limit else 500
             raise HTTPException(
-                status_code=500,
-                detail=f"AI generation error: {str(e)}"
+                status_code=status_code,
+                detail=str(e)
             )
         except ParsingError as e:
             logger.error(f"AI parsing error: {e}")

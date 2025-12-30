@@ -1181,8 +1181,18 @@ class SupabaseService:
                 analytics_data["ai_analysis"] = ai_analysis
                 analytics_data["ai_generated_at"] = get_current_timestamp("iso")
             
-            # Upsert (insert or update)
-            response = self.client.table("test_analytics").upsert(analytics_data).execute()
+            # Upsert (insert or update) - use on_conflict to handle duplicates
+            # Check if record exists first
+            existing = self.client.table("test_analytics").select("test_id").eq("test_id", test_id).execute()
+            
+            if existing.data and len(existing.data) > 0:
+                # Update existing record
+                response = self.client.table("test_analytics").update(analytics_data).eq("test_id", test_id).execute()
+                logger.debug(f"Updated existing analytics for test: {test_id}")
+            else:
+                # Insert new record
+                response = self.client.table("test_analytics").insert(analytics_data).execute()
+                logger.debug(f"Inserted new analytics for test: {test_id}")
             
             logger.info(f"Analytics saved to cache for test: {test_id}")
             logger.debug(f"  Statistics keys: {len(statistics)}")
@@ -1193,8 +1203,22 @@ class SupabaseService:
             return True
             
         except Exception as e:
-            logger.error(f"Error saving analytics to cache: {e}")
-            return False
+            # If it's a duplicate key error, try to update instead
+            error_str = str(e)
+            if "duplicate key" in error_str.lower() or "23505" in error_str:
+                logger.warning(f"Duplicate key detected for test {test_id}, attempting update instead...")
+                try:
+                    # Remove test_id from update data (it's the key)
+                    update_data = {k: v for k, v in analytics_data.items() if k != "test_id"}
+                    response = self.client.table("test_analytics").update(update_data).eq("test_id", test_id).execute()
+                    logger.info(f"Successfully updated analytics after duplicate key error for test: {test_id}")
+                    return True
+                except Exception as update_error:
+                    logger.error(f"Error updating analytics after duplicate key: {update_error}")
+                    return False
+            else:
+                logger.error(f"Error saving analytics to cache: {e}")
+                return False
     
     def invalidate_analytics(self, test_id: str) -> bool:
         """
