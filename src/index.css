@@ -2343,3 +2343,241 @@ body.class-form-modal-open .footer-header-style {
     font-size: 0.8125rem;
   }
 }
+
+/* Stepper Component Styles */
+.stepper-container {
+  margin-bottom: 2rem;
+  padding: 1.5rem 0;
+}
+
+.stepper-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  max-width: 100%;
+}
+
+.stepper-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.stepper-step.clickable {
+  cursor: pointer;
+}
+
+.stepper-step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1rem;
+  background: #e5e7eb;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.stepper-step.active .stepper-step-circle {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.stepper-step.completed .stepper-step-circle {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+
+.stepper-step.clickable:hover .stepper-step-circle {
+  transform: scale(1.1);
+}
+
+.stepper-step-label {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-align: center;
+  max-width: 120px;
+}
+
+.stepper-step.active .stepper-step-label {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.stepper-step.completed .stepper-step-label {
+  color: var(--success);
+}
+
+.stepper-line {
+  flex: 1;
+  height: 2px;
+  background: #e5e7eb;
+  margin: 0 0.5rem;
+  position: relative;
+  top: -20px;
+  z-index: 0;
+}
+
+.stepper-line.completed {
+  background: var(--success);
+}
+
+/* Responsive Stepper */
+@media (max-width: 768px) {
+  .stepper-wrapper {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .stepper-step {
+    flex: 0 0 auto;
+    min-width: 80px;
+  }
+  
+  .stepper-line {
+    display: none;
+  }
+  
+  .stepper-step-label {
+    font-size: 0.75rem;
+    max-width: 80px;
+  }
+}
+
+/* Step Content Styles */
+.step-content {
+  min-height: 400px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.step-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+/* Grade Scale Visualizer */
+.grade-scale-visualizer {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 2px solid #e5e7eb;
+  margin-bottom: 1.5rem;
+}
+
+.grade-scale-bar {
+  display: flex;
+  height: 60px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.75rem;
+}
+
+.grade-segment {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  position: relative;
+  cursor: help;
+}
+
+.grade-segment:hover {
+  filter: brightness(1.1);
+  transform: scaleY(1.05);
+}
+
+.grade-segment.grade-2 {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.grade-segment.grade-3 {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.grade-segment.grade-4 {
+  background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+}
+
+.grade-segment.grade-5 {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.grade-segment.grade-6 {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.grade-scale-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.5rem;
+}
+
+.grade-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #374151;
+  background: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
+}
+
+/* Questions Grid */
+.questions-grid-container {
+  margin-top: 1rem;
+}
+
+.question-card {
+  transition: all 0.2s ease;
+  min-height: 180px;
+}
+
+.question-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .grade-scale-bar {
+    height: 40px;
+  }
+  
+  .grade-label {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.25rem;
+  }
+  
+  .step-content {
+    min-height: 300px;
+  }
+}
