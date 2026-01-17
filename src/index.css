@@ -396,36 +396,50 @@ input:focus, select:focus, textarea:focus {
 /* Hover effects removed */
 
 .modal {
-  position: fixed;
-  z-index: 1000;
+  position: fixed !important;
+  z-index: 9999 !important;
   left: 0;
   top: 0;
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   overflow: hidden;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .modal-content {
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
   padding: 2rem;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   width: 95%;
   max-width: 1000px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 10000;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .modal-content[data-size="xl"] {
   max-width: 1400px;
   max-height: 95vh;
+}
+
+.modal-content[data-size="lg"] {
+  max-width: 40rem;
 }
 
 .modal:has(.ai-settings-content) .modal-content {
@@ -479,22 +493,354 @@ input:focus, select:focus, textarea:focus {
 }
 
 .close {
-  background: none;
+  background: transparent;
   border: none;
-  color: #aaa;
+  color: #6b7280;
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
-  padding: 0;
-  width: auto;
-  height: auto;
+  padding: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
 }
 
-/* Hover effects removed */
+.close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1f2937;
+  transform: rotate(90deg);
+}
 
 .close svg {
-  width: 24px;
-  height: 24px;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ==================== NEW MODAL STYLES ==================== */
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999 !important;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Modal Container */
+.modal-container {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-container.lg {
+  max-width: 40rem;
+}
+
+.modal-container.xl {
+  max-width: 56rem;
+}
+
+/* Modal Header (new style) */
+.modal-overlay .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 0;
+  padding-bottom: 1rem;
+  position: relative;
+  top: 0;
+  background: transparent;
+  box-shadow: none;
+  grid-template-columns: none;
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  grid-column: auto;
+  text-align: left;
+}
+
+.modal-title-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #63f1f2 0%, #a855f7 100%);
+  border-radius: 0.75rem;
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 241, 242, 0.3);
+}
+
+.modal-title-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Modal Close Button (new style) */
+.modal-close {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  grid-column: auto;
+  justify-self: auto;
+}
+
+.modal-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1f2937;
+  transform: rotate(90deg);
+}
+
+.modal-close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Modal Body */
+.modal-body {
+  padding: 1.5rem;
+}
+
+/* Modal Form */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Form Group */
+.modal-body .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-label-icon {
+  color: #63f1f2;
+}
+
+/* Form Select / Input */
+.form-select,
+.form-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 0.9375rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: white;
+  color: #1f2937;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.form-select:hover,
+.form-input:hover {
+  border-color: #d1d5db;
+}
+
+.form-select:focus,
+.form-input:focus {
+  border-color: #63f1f2;
+  box-shadow: 0 0 0 4px rgba(99, 241, 242, 0.1);
+}
+
+.form-select:disabled,
+.form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
+/* Form Textarea */
+.form-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 0.875rem 1rem;
+  font-size: 0.9375rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: white;
+  color: #1f2937;
+  transition: all 0.2s ease;
+  outline: none;
+  resize: vertical;
+}
+
+.form-textarea:focus {
+  border-color: #63f1f2;
+  box-shadow: 0 0 0 4px rgba(99, 241, 242, 0.1);
+}
+
+/* Form Help Text */
+.form-help {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Modal Buttons */
+.modal-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-btn-secondary {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.modal-btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+.modal-btn-primary {
+  background: linear-gradient(135deg, #63f1f2 0%, #a855f7 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 241, 242, 0.3);
+}
+
+.modal-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 241, 242, 0.4);
+}
+
+.modal-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Info Box in Modal */
+.modal-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(99, 241, 242, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+  border: 1px solid rgba(99, 241, 242, 0.3);
+  border-radius: 0.75rem;
+}
+
+.modal-info-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #63f1f2;
+}
+
+.modal-info-text {
+  font-size: 0.875rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0; 
+    transform: scale(0.9) translateY(10px);
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Responsive Modal */
+@media (max-width: 640px) {
+  .modal-container {
+    max-width: 100%;
+    margin: 0.5rem;
+    border-radius: 1rem;
+  }
+  
+  .modal-overlay .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+  
+  .modal-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .card {

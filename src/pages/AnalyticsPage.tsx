@@ -3,6 +3,8 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { GenerateReportModal } from '../components/tests/GenerateReportModal';
 import { AISettingsModal } from '../components/settings/AISettingsModal';
+import { AIAnalysisHistory } from '../components/analytics/AIAnalysisHistory';
+import { AIAnalysisModal } from '../components/tests/AIAnalysisModal';
 import { useAppContext } from '../context/AppContext';
 import type { Test } from '../types';
 import './AnalyticsPage.css';
@@ -13,6 +15,10 @@ export const AnalyticsPage: React.FC = () => {
   const [selectedTest, setSelectedTest] = useState<Test | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
+  const [selectedAnalysisTestId, setSelectedAnalysisTestId] = useState<string | null>(null);
+  const [selectedAnalysisTestName, setSelectedAnalysisTestName] = useState<string | null>(null);
+  const [selectedAnalysisClassName, setSelectedAnalysisClassName] = useState<string | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
 
   // Filter tests for selected class
   const classTests = useMemo(() => {
@@ -53,12 +59,14 @@ export const AnalyticsPage: React.FC = () => {
     <div className="analytics-page-container">
       {/* Header */}
       <div className="analytics-header">
-        <h2>AI Анализ на тестове</h2>
+        <h2>
+          <span className="gradient-text">AI Анализ на тестове</span>
+        </h2>
         <p>Генерирай автоматичен AI анализ на тестове с детайлни препоръки</p>
       </div>
 
       {/* Main Action Buttons */}
-      <div className="analytics-main-button-container" style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+      <div className="analytics-main-button-container">
         <Button onClick={() => setShowFormModal(true)}>
           🤖 Генерирай AI анализ
         </Button>
@@ -98,6 +106,31 @@ export const AnalyticsPage: React.FC = () => {
             <span>✅ Анализ на най-добрите и най-слабите резултати</span>
           </div>
         </div>
+      </div>
+
+      {/* AI Analysis History Section */}
+      <div className="analytics-history-section" style={{ marginTop: '2rem' }}>
+        <div className="analytics-history-header">
+          <div className="analytics-history-icon">
+            🤖
+          </div>
+          <div>
+            <h3 className="analytics-history-title">
+              AI Анализ на тестове
+            </h3>
+            <p className="analytics-history-subtitle">
+              Преглед на всички генерирани AI анализи
+            </p>
+          </div>
+        </div>
+        <AIAnalysisHistory 
+          onEntryClick={(entry) => {
+            setSelectedAnalysisTestId(entry.testId);
+            setSelectedAnalysisTestName(entry.testName);
+            setSelectedAnalysisClassName(entry.className);
+            setShowAnalysisModal(true);
+          }}
+        />
       </div>
 
       {/* Form Modal with all fields */}
@@ -140,6 +173,22 @@ export const AnalyticsPage: React.FC = () => {
         isOpen={showAISettings} 
         onClose={() => setShowAISettings(false)} 
       />
+
+      {/* AI Analysis Modal */}
+      {selectedAnalysisTestId && (
+        <AIAnalysisModal
+          isOpen={showAnalysisModal}
+          onClose={() => {
+            setShowAnalysisModal(false);
+            setSelectedAnalysisTestId(null);
+            setSelectedAnalysisTestName(null);
+            setSelectedAnalysisClassName(null);
+          }}
+          testId={selectedAnalysisTestId}
+          testName={selectedAnalysisTestName || undefined}
+          className={selectedAnalysisClassName || undefined}
+        />
+      )}
     </div>
   );
 };

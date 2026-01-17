@@ -176,12 +176,133 @@ export const aiSettingsAPI = {
 };
 
 /**
+ * AI Analysis response structure
+ */
+export interface AIAnalysisResponse {
+  success: boolean;
+  test_id: string;
+  analysis: {
+    lowest_results_analysis: string;
+    highest_results_analysis: string;
+    gaps_analysis: string;
+    results_analysis: string;
+    improvement_measures: string;
+  };
+  provider: string;
+}
+
+/**
+ * Generate AI analysis for test results (without creating Word document)
+ * @param testId Test ID
+ * @param classId Class ID
+ * @returns Promise that resolves with AI analysis response
+ * @throws Error if request fails
+ */
+export async function generateAIAnalysis(testId: string, classId: string): Promise<AIAnalysisResponse['analysis']> {
+  try {
+    // Validate inputs
+    if (!testId || !testId.trim()) {
+      throw new Error('test_id не може да бъде празно');
+    }
+    if (!classId || !classId.trim()) {
+      throw new Error('class_id не може да бъде празно');
+    }
+
+    // Encode query parameter
+    const encodedClassId = encodeURIComponent(classId.trim());
+    const encodedTestId = encodeURIComponent(testId.trim());
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/analytics/${encodedTestId}/generate-analysis?class_id=${encodedClassId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      await handleFetchError(response, 'Грешка при генериране на AI анализ');
+    }
+
+    const data: AIAnalysisResponse = await response.json();
+
+    if (!data.success) {
+      throw new Error('AI анализът не беше генериран успешно');
+    }
+
+    if (!data.analysis) {
+      throw new Error('AI анализът не съдържа данни');
+    }
+
+    return data.analysis;
+  } catch (error) {
+    // Re-throw network errors with better message
+    if (error instanceof Error && isBackendConnectionError(error.message)) {
+      throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+    }
+    throw error;
+  }
+}
+
+/**
  * Generate AI-powered test analysis report
  */
 export interface GenerateReportParams {
   testId: string;
   classId: string;
   teacherName?: string;
+}
+
+/**
+ * Generate and download AI analysis report (Word document)
+ * @param testId Test ID
+ * @param classId Class ID
+ * @returns Promise that resolves with Blob (Word file)
+ * @throws Error if request fails
+ */
+export async function downloadReport(testId: string, classId: string): Promise<Blob> {
+  const requestBody = {
+    test_id: testId,
+    class_id: classId,
+    teacher_name: null,
+  };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/generate-report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      // Handle 404 errors for missing templates with user-friendly message
+      if (response.status === 404) {
+        const errorMessage = await getResponseErrorMessage(response, 'Грешка при генериране на анализ');
+        if (
+          errorMessage.includes('No templates available') ||
+          errorMessage.includes('not found') ||
+          errorMessage.includes('No templates')
+        ) {
+          throw new Error('Няма налични шаблони. Моля, качете шаблон от AI Settings преди да генерирате анализ.');
+        }
+      }
+
+      await handleFetchError(response, 'Грешка при генериране на анализ');
+    }
+
+    // Return blob directly (don't trigger download)
+    return await response.blob();
+  } catch (error) {
+    // Re-throw network errors with better message
+    if (error instanceof Error && isBackendConnectionError(error.message)) {
+      throw new Error('Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.');
+    }
+    throw error;
+  }
 }
 
 /**

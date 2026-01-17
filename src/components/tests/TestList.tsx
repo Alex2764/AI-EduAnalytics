@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '../common/Button';
 import { Table } from '../common/Table';
 import { EditGradeScaleModal } from './EditGradeScaleModal';
-import { GenerateReportModal } from './GenerateReportModal';
+import { AIAnalysisModal } from './AIAnalysisModal';
 import { useAppContext } from '../../context/AppContext';
 import { formatDate } from '../../utils/dateFormatter';
 import type { Test } from '../../types';
@@ -13,11 +13,11 @@ interface TestListProps {
 }
 
 export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalytics }) => {
-  const { tests, results, students, classes, deleteTest } = useAppContext();
+  const { tests, results, students, deleteTest } = useAppContext();
   const [editingTest, setEditingTest] = useState<Test | null>(null);
   const [showEditScaleModal, setShowEditScaleModal] = useState(false);
-  const [showGenerateReportModal, setShowGenerateReportModal] = useState(false);
-  const [selectedTest, setSelectedTest] = useState<Test | null>(null);
+  const [showAIAnalysisModal, setShowAIAnalysisModal] = useState(false);
+  const [selectedTestForAI, setSelectedTestForAI] = useState<Test | null>(null);
 
   const handleDeleteTest = async (testId: string) => {
     const test = tests.find(t => t.id === testId);
@@ -37,14 +37,9 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
     setShowEditScaleModal(true);
   };
 
-  const handleGenerateReport = (test: Test) => {
-    setSelectedTest(test);
-    setShowGenerateReportModal(true);
-  };
-
-  const getClassId = (className: string): string | null => {
-    const classRecord = classes.find(c => c.name === className);
-    return classRecord?.id || null;
+  const handleOpenAIAnalysis = (test: Test) => {
+    setSelectedTestForAI(test);
+    setShowAIAnalysisModal(true);
   };
 
   const getTestStatistics = (test: Test) => {
@@ -124,33 +119,33 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
                     Анализ
                   </Button>
                   <Button
-                    onClick={() => handleGenerateReport(test)}
+                    onClick={() => handleOpenAIAnalysis(test)}
                     className="text-xs py-2 px-3"
                     variant="secondary"
                   >
                     AI Анализ
                   </Button>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <Button
+                      variant="danger"
+                      onClick={() => handleDeleteTest(test.id)}
+                      className="text-xs py-2 px-3 w-full"
+                    >
+                      Изтрий
+                    </Button>
+                  </div>
                 </>
               ) : (
-                <>
-                  <div></div>
+                <div style={{ gridColumn: '1 / -1' }}>
                   <Button
-                    onClick={() => handleGenerateReport(test)}
-                    className="text-xs py-2 px-3"
-                    variant="secondary"
-                    disabled={!hasResults}
+                    variant="danger"
+                    onClick={() => handleDeleteTest(test.id)}
+                    className="text-xs py-2 px-3 w-full"
                   >
-                    AI Анализ
+                    Изтрий
                   </Button>
-                </>
+                </div>
               )}
-              <Button
-                variant="danger"
-                onClick={() => handleDeleteTest(test.id)}
-                className="text-xs py-2 px-3"
-              >
-                Изтрий
-              </Button>
             </div>
 
             {/* Statistics */}
@@ -189,15 +184,16 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
         test={editingTest}
       />
 
-      {/* Generate Report Modal */}
-      <GenerateReportModal
-        isOpen={showGenerateReportModal}
+      {/* AI Analysis Modal */}
+      <AIAnalysisModal
+        isOpen={showAIAnalysisModal}
         onClose={() => {
-          setShowGenerateReportModal(false);
-          setSelectedTest(null);
+          setShowAIAnalysisModal(false);
+          setSelectedTestForAI(null);
         }}
-        test={selectedTest}
-        classId={selectedTest ? getClassId(selectedTest.class) : null}
+        testId={selectedTestForAI?.id || ''}
+        testName={selectedTestForAI?.name}
+        className={selectedTestForAI?.class}
       />
     </>
   );

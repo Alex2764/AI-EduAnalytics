@@ -703,6 +703,164 @@ async def generate_report(request: GenerateReportRequest):
         )
 
 
+@app.post("/api/analytics/{test_id}/generate-analysis")
+async def generate_analysis(test_id: str, class_id: str = Query(...)):
+    """
+    Generate AI analysis for test results (without creating Word document)
+    
+    This endpoint:
+    1. Fetches test data from Supabase
+    2. Generates AI analysis using configured AI provider (Gemini/Groq)
+    3. Saves analysis to test_analytics table
+    4. Returns the analysis as JSON
+    
+    Args:
+        test_id: Test ID (path parameter)
+        class_id: Class ID (query parameter)
+    
+    Returns:
+        JSON with AI analysis sections
+    """
+    
+    logger.info(f"Generate analysis request: test_id={test_id}, class_id={class_id}")
+    
+    try:
+        # Validate IDs
+        if not test_id or not test_id.strip():
+            raise HTTPException(status_code=400, detail="test_id cannot be empty")
+        if not class_id or not class_id.strip():
+            raise HTTPException(status_code=400, detail="class_id cannot be empty")
+        
+        test_id = test_id.strip()
+        class_id = class_id.strip()
+        
+        # Basic security check
+        for id_value in [test_id, class_id]:
+            if any(char in id_value for char in ['<', '>', '&', '"', "'", ';', '(', ')']):
+                raise HTTPException(status_code=400, detail="ID contains invalid characters")
+        
+        # ═══════════════════════════════════════════════════
+        # STEP 1: Fetch test data from Supabase
+        # ═══════════════════════════════════════════════════
+        
+        logger.info("Step 1/2: Fetching test data from Supabase...")
+        
+        try:
+            supabase_service = get_supabase_service()
+            test_data = supabase_service.get_test_analysis_data(
+                test_id=test_id,
+                class_id=class_id
+            )
+            
+            logger.info(f"Fetched data for {test_data.get('total_students', 0)} students")
+            
+        except SupabaseConnectionError as e:
+            logger.error(f"Supabase error: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error: {str(e)}"
+            )
+        
+        # ═══════════════════════════════════════════════════
+        # STEP 2: Generate AI analysis
+        # ═══════════════════════════════════════════════════
+        
+        ai_provider = settings.ai_provider
+        provider_name = "Groq" if ai_provider == "groq" else "Google Gemini"
+        logger.info(f"Step 2/2: Generating AI analysis with {provider_name}...")
+        
+        try:
+            # Use appropriate AI service based on configuration
+            if ai_provider == "groq":
+                ai_service = get_groq_service()
+            else:
+                ai_service = get_gemini_service()
+            
+            ai_analysis = ai_service.generate_analysis(test_data)
+            
+            logger.info("AI analysis generated successfully")
+            logger.debug(f"AI sections: {list(ai_analysis.keys())}")
+            
+            # ═══════════════════════════════════════════════════
+            # STEP 3: Save to cache
+            # ═══════════════════════════════════════════════════
+            
+            logger.info("Saving AI analysis to cache...")
+            
+            # Get existing analytics or create new
+            cached_analytics = supabase_service.get_analytics(test_id)
+            
+            if cached_analytics:
+                # Update existing cache
+                statistics = cached_analytics.get("statistics", {})
+                question_success_rates = cached_analytics.get("question_success_rates", {})
+                supabase_service.save_analytics(
+                    test_id,
+                    statistics,
+                    question_success_rates,
+                    ai_analysis=ai_analysis
+                )
+            else:
+                # Extract statistics and question success rates from test_data
+                statistics = {}
+                question_success_rates = {}
+                for key, value in test_data.items():
+                    if key.startswith('q') and key.endswith('_success'):
+                        question_success_rates[key] = value
+                    elif key not in ['test_id', 'test_name', 'class_id', 'class_name', 
+                                    'subject', 'teacher_name', 'students', 'results', 'test',
+                                    'total_questions', 'mc_questions', 'short_questions', 'max_points_test']:
+                        statistics[key] = value
+                
+                supabase_service.save_analytics(
+                    test_id,
+                    statistics,
+                    question_success_rates,
+                    ai_analysis=ai_analysis
+                )
+            
+            logger.info("AI analysis cached successfully")
+            
+            # ═══════════════════════════════════════════════════
+            # STEP 4: Return JSON response
+            # ═══════════════════════════════════════════════════
+            
+            return {
+                "success": True,
+                "test_id": test_id,
+                "analysis": ai_analysis,
+                "provider": provider_name
+            }
+            
+        except (GeminiAPIError, GroqAPIError) as e:
+            provider_name = "Groq" if isinstance(e, GroqAPIError) else "Gemini"
+            logger.error(f"{provider_name} API error: {e}")
+            # Return 429 for rate limit errors, 500 for other API errors
+            status_code = 429 if e.is_rate_limit else 500
+            raise HTTPException(
+                status_code=status_code,
+                detail=str(e)
+            )
+        except ParsingError as e:
+            logger.error(f"AI parsing error: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"AI response parsing error: {str(e)}"
+            )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    
+    except Exception as e:
+        # Catch any unexpected errors
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected server error: {str(e)}"
+        )
+
+
 @app.post("/api/cleanup")
 async def cleanup_old_documents(
     max_age_hours: int = Query(24, ge=1, le=8760, description="Maximum age in hours (1-8760, default: 24)"),
