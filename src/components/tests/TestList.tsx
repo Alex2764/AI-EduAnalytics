@@ -26,8 +26,8 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
     if (window.confirm(`Сигурни ли сте, че искате да изтриете теста "${test.name}"?`)) {
       try {
         await deleteTest(testId);
-      } catch (err: any) {
-        alert(err.message || 'Грешка при изтриване на тест!');
+      } catch (err: unknown) {
+        alert(err instanceof Error ? err.message : 'Грешка при изтриване на тест!');
       }
     }
   };

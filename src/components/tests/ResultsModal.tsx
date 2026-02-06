@@ -184,8 +184,8 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ isOpen, onClose, tes
       setSaving(true);
       await saveResults(testId, resultsToSave);
       onClose();
-    } catch (err: any) {
-      alert(err.message || 'Грешка при запазване на резултати!');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Грешка при запазване на резултати!');
     } finally {
       setSaving(false);
     }

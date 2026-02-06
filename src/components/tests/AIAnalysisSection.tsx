@@ -5,6 +5,14 @@ import { AnalysisDisplay } from '@/components/analytics/AnalysisDisplay';
 import { DownloadReportButton } from '@/components/analytics/DownloadReportButton';
 import { supabase } from '@/lib/supabase';
 
+interface AIAnalysisData {
+  lowest_results_analysis: string;
+  highest_results_analysis: string;
+  gaps_analysis: string;
+  results_analysis: string;
+  improvement_measures: string;
+}
+
 interface AIAnalysisSectionProps {
   testId: string;
   classId: string; // Име на класа (9А, 11Б)
@@ -12,7 +20,7 @@ interface AIAnalysisSectionProps {
 
 export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({ testId, classId }) => {
   const { classes } = useAppContext();
-  const [aiAnalysis, setAiAnalysis] = useState<any | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisData | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Намери UUID на класа

@@ -75,8 +75,8 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
 
       // Reset form
       setFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
-    } catch (err: any) {
-      setErrors([err.message || 'Грешка при запазване на ученик!']);
+    } catch (err: unknown) {
+      setErrors([err instanceof Error ? err.message : 'Грешка при запазване на ученик!']);
     } finally {
       setAdding(false);
     }
@@ -114,8 +114,8 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
       setEditingStudent(null);
       setEditFormData({ firstName: '', middleName: '', lastName: '', number: 1, gender: 'male' as GenderType });
       setEditErrors([]);
-    } catch (err: any) {
-      setEditErrors([err.message || 'Грешка при запазване на промените!']);
+    } catch (err: unknown) {
+      setEditErrors([err instanceof Error ? err.message : 'Грешка при запазване на промените!']);
     } finally {
       setUpdating(false);
     }
@@ -142,8 +142,8 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
       try {
         setDeleting(studentId);
         await deleteStudent(studentId);
-      } catch (err: any) {
-        alert(err.message || 'Грешка при изтриване на ученик!');
+      } catch (err: unknown) {
+        alert(err instanceof Error ? err.message : 'Грешка при изтриване на ученик!');
       } finally {
         setDeleting(null);
       }
@@ -224,7 +224,7 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
         lineWithoutGender = trimmedLine.replace(/\s*\([^)]+\)\s*$/, '').trim();
       }
       
-      const match = lineWithoutGender.match(/^(\d+)[\.\):\s]+(.+)$/);
+      const match = lineWithoutGender.match(/^(\d+)[.):\s]+(.+)$/);
       
       if (!match) {
         validationErrors.push(`Ред ${index + 1}: Невалиден формат. Използвайте: "№. Име Презиме Фамилия (момче/момиче)"`);
@@ -296,8 +296,8 @@ export const StudentsModal: React.FC<StudentsModalProps> = ({ isOpen, onClose, c
       setBulkText('');
       setShowBulkForm(false);
       alert(`Успешно добавени ${studentsToAdd.length} ученици!`);
-    } catch (err: any) {
-      setBulkErrors([err.message || 'Грешка при добавяне на ученици!']);
+    } catch (err: unknown) {
+      setBulkErrors([err instanceof Error ? err.message : 'Грешка при добавяне на ученици!']);
     }
   };
 

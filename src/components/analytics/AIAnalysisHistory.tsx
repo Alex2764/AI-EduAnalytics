@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/context/AppContext';
 
+interface AnalyticsRecord {
+  test_id: string;
+  ai_generated_at: string | null;
+  ai_analysis: Record<string, unknown> | null;
+  updated_at: string | null;
+}
+
 interface AIAnalysisEntry {
   testId: string;
   testName: string;
@@ -54,11 +61,11 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
 
         console.log('📊 Всички записи от test_analytics:', allData?.length || 0);
         if (allData && allData.length > 0) {
-          const firstItem = allData[0] as any;
+          const firstItem = allData[0];
           console.log('📋 Първи запис (пример):', JSON.stringify(firstItem, null, 2));
           console.log('📋 Има ai_analysis?:', !!firstItem?.ai_analysis);
           console.log('📋 Тип на ai_analysis:', typeof firstItem?.ai_analysis);
-          if (firstItem?.ai_analysis) {
+          if (firstItem?.ai_analysis && typeof firstItem.ai_analysis === 'object' && firstItem.ai_analysis !== null) {
             console.log('📋 Ключове в ai_analysis:', Object.keys(firstItem.ai_analysis));
           }
         }
@@ -72,12 +79,7 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
 
         // Филтрирай записи с валиден ai_analysis на фронтенда
         // (Supabase .not() може да не работи правилно с JSON полета)
-        const typedAllData = (allData || []) as Array<{
-          test_id: string;
-          ai_generated_at?: string | null;
-          ai_analysis?: any;
-          updated_at?: string | null;
-        }>;
+        const typedAllData = (allData || []) as AnalyticsRecord[];
 
         const filteredData = typedAllData.filter(item => {
           const aiAnalysis = item.ai_analysis;
@@ -100,12 +102,7 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
 
         // Намери тестовете за всеки анализ
         const entries: AIAnalysisEntry[] = [];
-        const typedData = filteredData as Array<{
-          test_id: string;
-          ai_generated_at?: string | null;
-          ai_analysis?: any;
-          updated_at?: string | null;
-        }>;
+        const typedData = filteredData;
         
         for (const analyticsData of typedData) {
           const testId = analyticsData.test_id;
@@ -204,13 +201,12 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
       console.log(`🗑️ Изтриване на анализ за тест: ${entry.testName}`);
       
       // Изтрий анализа като сетнеш ai_analysis на null
-      // Използваме type assertion за да обходим TypeScript проверката
-      const table = supabase.from('test_analytics') as any;
-      const { error } = await table
+      const { error } = await supabase
+        .from('test_analytics')
         .update({ 
           ai_analysis: null,
           ai_generated_at: null
-        })
+        } as Record<string, unknown>)
         .eq('test_id', entry.testId);
 
       if (error) {

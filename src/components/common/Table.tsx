@@ -6,19 +6,19 @@ interface Column {
   sortable?: boolean;
 }
 
-interface TableProps {
+interface TableProps<T> {
   columns: Column[];
-  data: any[];
-  renderRow: (item: any, index: number) => React.ReactNode;
+  data: T[];
+  renderRow: (item: T, index: number) => React.ReactNode;
   emptyMessage?: string;
 }
 
-export const Table: React.FC<TableProps> = ({
+export function Table<T>({
   columns,
   data,
   renderRow,
   emptyMessage = 'Няма данни за показване',
-}) => {
+}: TableProps<T>) {
   return (
     <div className="overflow-x-auto">
       <table className="table">
@@ -45,4 +45,4 @@ export const Table: React.FC<TableProps> = ({
       </table>
     </div>
   );
-};
+}

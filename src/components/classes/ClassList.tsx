@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '../common/Button';
 import { Table } from '../common/Table';
 import { useAppContext } from '../../context/AppContext';
+import type { Class } from '../../types';
 
 interface ClassListProps {
   onManageStudents: (className: string) => void;
@@ -24,8 +25,8 @@ export const ClassList: React.FC<ClassListProps> = ({ onManageStudents }) => {
     if (window.confirm(confirmMessage)) {
       try {
         await deleteClass(classId);
-      } catch (err: any) {
-        alert(err.message || 'Грешка при изтриване на клас!');
+      } catch (err: unknown) {
+        alert(err instanceof Error ? err.message : 'Грешка при изтриване на клас!');
       }
     }
   };
@@ -40,7 +41,7 @@ export const ClassList: React.FC<ClassListProps> = ({ onManageStudents }) => {
 
   const sortedClasses = [...classes].sort((a, b) => a.name.localeCompare(b.name));
 
-  const renderRow = (classItem: any, index: number) => {
+  const renderRow = (classItem: Class, index: number) => {
     const studentCount = students.filter(s => s.class === classItem.name).length;
     
     return (

@@ -66,7 +66,7 @@ export const ClassForm: React.FC<ClassFormProps> = ({ onSuccess }) => {
       if (onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getErrorMessage(err, 'Грешка при създаване на клас!'));
     } finally {
       setLoading(false);
