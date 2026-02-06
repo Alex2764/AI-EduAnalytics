@@ -206,7 +206,7 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
         .update({ 
           ai_analysis: null,
           ai_generated_at: null
-        } as Record<string, unknown>)
+        })
         .eq('test_id', entry.testId);
 
       if (error) {

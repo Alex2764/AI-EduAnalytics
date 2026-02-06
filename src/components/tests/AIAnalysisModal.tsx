@@ -7,6 +7,20 @@ import { DownloadReportButton } from '@/components/analytics/DownloadReportButto
 import { supabase } from '@/lib/supabase';
 import './AIAnalysisModal.css';
 
+interface AIAnalysisData {
+  lowest_results_analysis?: string;
+  highest_results_analysis?: string;
+  gaps_analysis?: string;
+  results_analysis?: string;
+  improvement_measures?: string;
+  // Fallback field names from older analyses
+  lowest_results?: string;
+  highest_results?: string;
+  gaps?: string;
+  results?: string;
+  improvements?: string;
+}
+
 interface AIAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -76,13 +90,13 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
         if (data && !error) {
           // Първо пробвай JSON полето ai_analysis (основен формат)
           if (data.ai_analysis && typeof data.ai_analysis === 'object' && data.ai_analysis !== null) {
-            const analysisObj = data.ai_analysis as Record<string, unknown>;
+            const analysisObj = data.ai_analysis as AIAnalysisData;
             setAiAnalysis({
-              lowest_results_analysis: String(analysisObj.lowest_results_analysis || analysisObj.lowest_results || ''),
-              highest_results_analysis: String(analysisObj.highest_results_analysis || analysisObj.highest_results || ''),
-              gaps_analysis: String(analysisObj.gaps_analysis || analysisObj.gaps || ''),
-              results_analysis: String(analysisObj.results_analysis || analysisObj.results || ''),
-              improvement_measures: String(analysisObj.improvement_measures || analysisObj.improvements || ''),
+              lowest_results_analysis: analysisObj.lowest_results_analysis || analysisObj.lowest_results || '',
+              highest_results_analysis: analysisObj.highest_results_analysis || analysisObj.highest_results || '',
+              gaps_analysis: analysisObj.gaps_analysis || analysisObj.gaps || '',
+              results_analysis: analysisObj.results_analysis || analysisObj.results || '',
+              improvement_measures: analysisObj.improvement_measures || analysisObj.improvements || '',
             });
             console.log('✅ Зареден анализ от ai_analysis JSON поле');
           } 
