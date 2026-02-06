@@ -79,8 +79,8 @@ export const EditGradeScaleModal: React.FC<EditGradeScaleModalProps> = ({ isOpen
     try {
       await updateTest(test.id, { gradeScale: gradeScaleToSave });
       onClose();
-    } catch (err: any) {
-      setErrors([err.message || 'Грешка при запазване на скалата!']);
+    } catch (err: unknown) {
+      setErrors([err instanceof Error ? err.message : 'Грешка при запазване на скалата!']);
     }
   };
 

@@ -7,6 +7,20 @@ import { DownloadReportButton } from '@/components/analytics/DownloadReportButto
 import { supabase } from '@/lib/supabase';
 import './AIAnalysisModal.css';
 
+interface AIAnalysisData {
+  lowest_results_analysis?: string;
+  highest_results_analysis?: string;
+  gaps_analysis?: string;
+  results_analysis?: string;
+  improvement_measures?: string;
+  // Fallback field names from older analyses
+  lowest_results?: string;
+  highest_results?: string;
+  gaps?: string;
+  results?: string;
+  improvements?: string;
+}
+
 interface AIAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -74,11 +88,9 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
           .maybeSingle();
 
         if (data && !error) {
-          const analyticsData = data as any;
-          
           // Първо пробвай JSON полето ai_analysis (основен формат)
-          if (analyticsData.ai_analysis && typeof analyticsData.ai_analysis === 'object') {
-            const analysisObj = analyticsData.ai_analysis;
+          if (data.ai_analysis && typeof data.ai_analysis === 'object' && data.ai_analysis !== null) {
+            const analysisObj = data.ai_analysis as AIAnalysisData;
             setAiAnalysis({
               lowest_results_analysis: analysisObj.lowest_results_analysis || analysisObj.lowest_results || '',
               highest_results_analysis: analysisObj.highest_results_analysis || analysisObj.highest_results || '',
@@ -88,17 +100,8 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
             });
             console.log('✅ Зареден анализ от ai_analysis JSON поле');
           } 
-          // Fallback към отделни полета (ако съществуват в таблицата)
-          else if (analyticsData.lowest_results_analysis || analyticsData.highest_results_analysis) {
-            setAiAnalysis({
-              lowest_results_analysis: analyticsData.lowest_results_analysis || '',
-              highest_results_analysis: analyticsData.highest_results_analysis || '',
-              gaps_analysis: analyticsData.gaps_analysis || '',
-              results_analysis: analyticsData.results_analysis || '',
-              improvement_measures: analyticsData.improvement_measures || '',
-            });
-            console.log('✅ Зареден анализ от отделни полета');
-          } else {
+          // Fallback - ако ai_analysis е null
+          else {
             console.log('⚠️ Не е намерен анализ за тест:', testId);
             setAiAnalysis(null);
           }

@@ -91,8 +91,8 @@ export const StudentBulkForm: React.FC<StudentBulkFormProps> = ({ className, onC
       setLoading(true);
       await addMultipleStudents(newStudents);
       onClose();
-    } catch (err: any) {
-      setErrors([err.message || 'Грешка при добавяне на ученици!']);
+    } catch (err: unknown) {
+      setErrors([err instanceof Error ? err.message : 'Грешка при добавяне на ученици!']);
     } finally {
       setLoading(false);
     }

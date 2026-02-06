@@ -60,7 +60,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       // Map Supabase data to our Class type
-      const mappedClasses: Class[] = (data || []).map((item: any) => ({
+      const mappedClasses: Class[] = (data || []).map((item) => ({
         id: item.id,
         name: item.name,
         schoolYear: item.school_year,
@@ -68,9 +68,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
       
       setClasses(mappedClasses);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error fetching classes:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
     }
   }, []);
 
@@ -85,7 +85,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       // Map Supabase data to our Student type
-      const mappedStudents: Student[] = (data || []).map((item: any) => ({
+      const mappedStudents: Student[] = (data || []).map((item) => ({
         id: item.id,
         firstName: item.first_name,
         middleName: item.middle_name,
@@ -96,9 +96,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
       
       setStudents(mappedStudents);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error fetching students:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
     }
   }, []);
 
@@ -112,7 +112,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       // Map Supabase data to our Test type
-      const mappedTests: Test[] = (data || []).map((item: any) => {
+      const mappedTests: Test[] = (data || []).map((item) => {
         const maxPoints = item.max_points;
         // Load gradeScale from database or create default
         let gradeScale;
@@ -132,7 +132,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 id: item.id,
                 name: item.name,
                 class: item.class_name, // Using class_name from table
-                type: item.type as any,
+                type: item.type as Test['type'],
                 date: item.date,
                 maxPoints: maxPoints,
                 gradeScale: gradeScale,
@@ -141,9 +141,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       
       setTests(mappedTests);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error fetching tests:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
     }
   }, []);
 
@@ -157,7 +157,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       // Map Supabase data to our Result type
-      const mappedResults: Result[] = (data || []).map((item: any) => ({
+      const mappedResults: Result[] = (data || []).map((item) => ({
         id: item.id,
         studentId: item.student_id,
         testId: item.test_id,
@@ -172,9 +172,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
       
       setResults(mappedResults);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error fetching results:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
     }
   }, []);
 
@@ -213,16 +213,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchClasses();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error adding class:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchClasses]);
 
   const updateClass = useCallback(async (id: string, classData: Partial<Class>) => {
     try {
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (classData.name) updateData.name = classData.name;
       if (classData.schoolYear) updateData.school_year = classData.schoolYear;
       if (classData.createdDate) updateData.created_date = classData.createdDate;
@@ -235,9 +235,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchClasses();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error updating class:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchClasses]);
@@ -252,9 +252,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchClasses();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error deleting class:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchClasses]);
@@ -285,9 +285,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchStudents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error adding student:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [classes, fetchStudents]);
@@ -315,16 +315,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchStudents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error adding multiple students:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [classes, fetchStudents]);
 
   const updateStudent = useCallback(async (id: string, studentData: Partial<Student>) => {
     try {
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (studentData.firstName) updateData.first_name = studentData.firstName;
       if (studentData.middleName) updateData.middle_name = studentData.middleName;
       if (studentData.lastName) updateData.last_name = studentData.lastName;
@@ -345,9 +345,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchStudents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error updating student:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [classes, fetchStudents]);
@@ -362,9 +362,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchStudents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error deleting student:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchStudents]);
@@ -396,16 +396,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchTests();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error adding test:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [classes, fetchTests]);
 
   const updateTest = useCallback(async (id: string, testData: Partial<Test>) => {
     try {
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (testData.name) updateData.name = testData.name;
       if (testData.type) updateData.type = testData.type;
       if (testData.date) updateData.date = testData.date;
@@ -427,9 +427,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchTests();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error updating test:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [classes, fetchTests]);
@@ -444,9 +444,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchTests();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error deleting test:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchTests]);
@@ -476,9 +476,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchResults();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error adding result:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchResults]);
@@ -505,16 +505,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchResults();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error adding multiple results:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchResults]);
 
   const updateResult = useCallback(async (id: string, resultData: Partial<Result>) => {
     try {
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (resultData.points !== undefined) updateData.points = resultData.points;
       if (resultData.grade) updateData.grade = resultData.grade;
       if (resultData.percentage !== undefined) updateData.percentage = resultData.percentage;
@@ -531,9 +531,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchResults();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error updating result:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchResults]);
@@ -548,9 +548,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchResults();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error deleting result:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchResults]);
@@ -587,9 +587,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (error) throw error;
       
       await fetchResults();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error saving results:', err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Възникна неочаквана грешка');
       throw err;
     }
   }, [fetchResults]);

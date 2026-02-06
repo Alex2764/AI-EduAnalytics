@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
-import { templateAPI, aiSettingsAPI, type TemplateInfo, type AISettings } from '../../lib/api';
+import { templateAPI, aiSettingsAPI, type TemplateInfo } from '../../lib/api';
 import { logger } from '../../utils/logger';
-import { getErrorMessage, shouldIgnoreError, createErrorHandler } from '../../utils/errorHandler';
+import { getErrorMessage, shouldIgnoreError } from '../../utils/errorHandler';
 
 interface AISettingsModalProps {
   isOpen: boolean;
@@ -30,7 +30,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       const settings = await aiSettingsAPI.getAISettings();
       setTeacherName(settings.teacher_name || '');
       setSubject(settings.subject || '');
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Silently fail if backend is not available
       if (shouldIgnoreError(err)) {
         return;
@@ -47,7 +47,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
     try {
       const data = await templateAPI.getTemplates();
       setTemplates(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = getErrorMessage(err, 'Грешка при зареждане на шаблони');
       setError(errorMessage);
     } finally {
@@ -74,7 +74,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
         subject: subject.trim() || null,
       });
       setSuccess('AI настройките са запазени успешно!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = getErrorMessage(err, 'Грешка при запазване на настройки');
       setError(errorMessage);
     } finally {
@@ -116,8 +116,8 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       const fileInput = document.getElementById('template-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       await loadTemplates();
-    } catch (err: any) {
-      setError(err.message || 'Грешка при качване на шаблон');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Грешка при качване на шаблон');
     } finally {
       setUploading(false);
     }
@@ -137,7 +137,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       await templateAPI.deleteTemplate(templateName);
       setSuccess(`Шаблонът "${templateName}" е изтрит успешно!`);
       await loadTemplates();
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = getErrorMessage(err, 'Грешка при изтриване на шаблон');
       logger.error('Delete template error:', err);
       setError(errorMessage);

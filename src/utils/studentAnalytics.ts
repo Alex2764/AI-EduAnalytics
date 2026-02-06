@@ -89,7 +89,7 @@ export const getStudentResults = (
       return {
         testId: test.id,
         testName: test.name,
-        testType: test.type as any,
+        testType: test.type,
         testDate: test.date,
         points: result.points,
         maxPoints: test.maxPoints,
@@ -366,7 +366,7 @@ export const calculateQuestionStats = (
     let fullScoreCount = 0;
     let partialScoreCount = 0;
     let zeroScoreCount = 0;
-    let attemptedBy = validResults.length; // Count all students who participated
+    const attemptedBy = validResults.length; // Count all students who participated
 
     validResults.forEach(result => {
       let questionPoints = 0;

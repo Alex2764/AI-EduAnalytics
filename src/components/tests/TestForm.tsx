@@ -63,7 +63,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
           return false;
         }
         return true;
-      case 2:
+      case 2: {
         const grade2Num = typeof gradeScale.grade2 === 'string' ? parseFloat(gradeScale.grade2) || 0 : gradeScale.grade2;
         const grade3Num = typeof gradeScale.grade3 === 'string' ? parseFloat(gradeScale.grade3) || 0 : gradeScale.grade3;
         const grade4Num = typeof gradeScale.grade4 === 'string' ? parseFloat(gradeScale.grade4) || 0 : gradeScale.grade4;
@@ -80,6 +80,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
           return false;
         }
         return true;
+      }
       case 3:
         // Въпросите са опционални, няма нужда от валидация
         return true;
@@ -240,8 +241,8 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
       if (onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
-      setError(err.message || 'Грешка при създаване на тест!');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Грешка при създаване на тест!');
     } finally {
       setLoading(false);
     }
