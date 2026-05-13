@@ -20,10 +20,14 @@
 
 ## Как да стартирам
 
+1. Копирай `.env.example` като `.env` в корена на проекта и попълни `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY` от [Supabase → Settings → API](https://supabase.com/dashboard/project/_/settings/api). Файлът `.env` не се качва в git.
+
 ```bash
 npm install
 npm run dev
 ```
+
+За AI отчети и Word генериране стартирай и backend-а: виж [backend/README.md](backend/README.md) (копирай `backend/.env.example` → `backend/.env`).
 
 Приложението ще се отвори на `http://localhost:5173`
 
