@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/context/AppContext';
+import { logger } from '@/utils/logger';
 
 interface AIAnalysisEntry {
   testId: string;
@@ -19,17 +20,14 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
   const { tests, results } = useAppContext();
   const [analysisEntries, setAnalysisEntries] = useState<AIAnalysisEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0); // За принудително обновяване
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Функция за обновяване на списъка
   const refreshHistory = () => {
     setRefreshKey(prev => prev + 1);
   };
 
-  // Извакай refreshHistory отвън чрез window event
   useEffect(() => {
     const handleAnalysisGenerated = () => {
-      console.log('🔄 Получено събитие за нов анализ, обновявам история...');
       refreshHistory();
     };
 
@@ -43,112 +41,65 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
     async function loadAnalysisHistory() {
       try {
         setLoading(true);
-        
-        console.log('🔍 Зареждане на AI анализи история...');
-        console.log('📋 Налични тестове:', tests.length);
-        
-        // Зареди ВСИЧКИ записи от test_analytics за debugging
+
         const { data: allData, error: allError } = await supabase
           .from('test_analytics')
           .select('test_id, ai_generated_at, ai_analysis, updated_at');
 
-        console.log('📊 Всички записи от test_analytics:', allData?.length || 0);
-        if (allData && allData.length > 0) {
-          const firstItem = allData[0] as any;
-          console.log('📋 Първи запис (пример):', JSON.stringify(firstItem, null, 2));
-          console.log('📋 Има ai_analysis?:', !!firstItem?.ai_analysis);
-          console.log('📋 Тип на ai_analysis:', typeof firstItem?.ai_analysis);
-          if (firstItem?.ai_analysis) {
-            console.log('📋 Ключове в ai_analysis:', Object.keys(firstItem.ai_analysis));
-          }
-        }
-
         if (allError) {
-          console.error('❌ Грешка при зареждане на история:', allError);
+          logger.error('Грешка при зареждане на история на AI анализи:', allError);
           setAnalysisEntries([]);
           setLoading(false);
           return;
         }
 
-        // Филтрирай записи с валиден ai_analysis на фронтенда
-        // (Supabase .not() може да не работи правилно с JSON полета)
         const typedAllData = (allData || []) as Array<{
           test_id: string;
           ai_generated_at?: string | null;
-          ai_analysis?: any;
+          ai_analysis?: unknown;
           updated_at?: string | null;
         }>;
 
         const filteredData = typedAllData.filter(item => {
           const aiAnalysis = item.ai_analysis;
-          return aiAnalysis && 
-                 typeof aiAnalysis === 'object' && 
-                 aiAnalysis !== null && 
+          return aiAnalysis &&
+                 typeof aiAnalysis === 'object' &&
+                 aiAnalysis !== null &&
                  Object.keys(aiAnalysis).length > 0;
         });
 
-        console.log('📊 Филтрирани записи с валиден ai_analysis:', filteredData.length);
-
         if (!filteredData || filteredData.length === 0) {
-          console.log('⚠️ Няма записи с валиден AI анализ в базата');
-          console.log(`   → Общо записи в базата: ${typedAllData?.length || 0}`);
-          console.log(`   → Филтрирани записи: ${filteredData?.length || 0}`);
           setAnalysisEntries([]);
           setLoading(false);
           return;
         }
 
-        // Намери тестовете за всеки анализ
         const entries: AIAnalysisEntry[] = [];
-        const typedData = filteredData as Array<{
-          test_id: string;
-          ai_generated_at?: string | null;
-          ai_analysis?: any;
-          updated_at?: string | null;
-        }>;
-        
-        for (const analyticsData of typedData) {
+
+        for (const analyticsData of filteredData) {
           const testId = analyticsData.test_id;
-          
+
           if (!testId) {
-            console.log(`⚠️ Пропускане на запис без test_id`);
             continue;
           }
 
           const test = tests.find(t => t.id === testId);
-          
+
           if (!test) {
-            console.log(`⚠️ Не е намерен тест за test_id: ${testId}`);
             continue;
           }
 
-          // Провери дали има анализ в JSON полето ai_analysis
           const aiAnalysis = analyticsData.ai_analysis;
-          
-          console.log(`🔍 Проверка на анализ за тест ${testId} (${test.name}):`, {
-            hasAiAnalysis: !!aiAnalysis,
-            type: typeof aiAnalysis,
-            isObject: typeof aiAnalysis === 'object',
-            isNull: aiAnalysis === null,
-            keys: aiAnalysis && typeof aiAnalysis === 'object' ? Object.keys(aiAnalysis) : 'N/A'
-          });
-
-          // Проверка: ai_analysis трябва да е обект с поне един ключ
-          let hasAnalysis = false;
-          if (aiAnalysis && typeof aiAnalysis === 'object' && aiAnalysis !== null) {
-            const keys = Object.keys(aiAnalysis);
-            hasAnalysis = keys.length > 0;
-            console.log(`   → Ключове: [${keys.join(', ')}] (${keys.length} броя)`);
-          }
+          const hasAnalysis = aiAnalysis &&
+            typeof aiAnalysis === 'object' &&
+            aiAnalysis !== null &&
+            Object.keys(aiAnalysis).length > 0;
 
           if (hasAnalysis) {
-            console.log(`✅ Намерен валиден анализ за тест ${test.name}`);
-            // Използвай ai_generated_at или updated_at като дата
-            const generatedAt = analyticsData.ai_generated_at || 
+            const generatedAt = analyticsData.ai_generated_at ||
                                analyticsData.updated_at ||
                                new Date().toISOString();
 
-            // Изчисли средния процент за теста
             const testResults = results.filter(r => r.testId === testId);
             let averagePercentage = 0;
             if (testResults.length > 0) {
@@ -164,24 +115,18 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
               hasAnalysis: true,
               averagePercentage: averagePercentage,
             });
-
-            console.log(`✅ Добавен анализ: ${test.name} (${test.class})`);
-          } else {
-            console.log(`⚠️ Анализ без валидни данни за тест: ${test.name}`);
           }
         }
 
-        console.log(`📋 Общо намерени анализи: ${entries.length}`);
         setAnalysisEntries(entries);
       } catch (err) {
-        console.error('❌ Грешка при зареждане на история на анализи:', err);
+        logger.error('Грешка при зареждане на история на анализи:', err);
         setAnalysisEntries([]);
       } finally {
         setLoading(false);
       }
     }
 
-    // Зареди историята само ако има тестове
     if (tests.length > 0) {
       loadAnalysisHistory();
     }
@@ -194,37 +139,31 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
   };
 
   const handleDeleteAnalysis = async (event: React.MouseEvent, entry: AIAnalysisEntry) => {
-    event.stopPropagation(); // Предотвратява отваряне на модала при клик на бутона
+    event.stopPropagation();
 
     if (!window.confirm(`Сигурни ли сте, че искате да изтриете AI анализа за тест "${entry.testName}"?`)) {
       return;
     }
 
     try {
-      console.log(`🗑️ Изтриване на анализ за тест: ${entry.testName}`);
-      
-      // Изтрий анализа като сетнеш ai_analysis на null
-      // Използваме type assertion за да обходим TypeScript проверката
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const table = supabase.from('test_analytics') as any;
       const { error } = await table
-        .update({ 
+        .update({
           ai_analysis: null,
           ai_generated_at: null
         })
         .eq('test_id', entry.testId);
 
       if (error) {
-        console.error('❌ Грешка при изтриване на анализ:', error);
+        logger.error('Грешка при изтриване на анализ:', error);
         alert('Грешка при изтриване на анализа. Моля, опитайте отново.');
         return;
       }
 
-      console.log('✅ Анализът е изтрит успешно');
-      
-      // Обнови историята
       refreshHistory();
     } catch (err) {
-      console.error('❌ Грешка при изтриване на анализ:', err);
+      logger.error('Грешка при изтриване на анализ:', err);
       alert('Грешка при изтриване на анализа. Моля, опитайте отново.');
     }
   };
@@ -278,14 +217,12 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
             className="analytics-history-item"
           >
             <div className="analytics-history-item-left">
-              {/* Icon */}
               <div className="analytics-history-item-icon">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              
-              {/* Info */}
+
               <div className="analytics-history-item-info">
                 <h4>{entry.testName}</h4>
                 <div className="analytics-history-item-meta">
@@ -302,8 +239,7 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
                 </div>
               </div>
             </div>
-            
-            {/* Right Side */}
+
             <div className="analytics-history-item-right">
               <div className="analytics-history-score">
                 <div className="analytics-history-score-value">
@@ -314,9 +250,9 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
                 </div>
                 <div className="analytics-history-score-label">Среден резултат</div>
               </div>
-              
+
               <div className="analytics-history-status"></div>
-              
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -333,7 +269,7 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
                 </svg>
                 Виж
               </button>
-              
+
               <button
                 onClick={(e) => handleDeleteAnalysis(e, entry)}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg p-2 transition-colors"
@@ -348,7 +284,6 @@ export const AIAnalysisHistory: React.FC<AIAnalysisHistoryProps> = ({ onEntryCli
           </div>
         ))}
       </div>
-
     </>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { generateReport } from '@/lib/api';
+import { logger } from '@/utils/logger';
 
 interface DownloadReportButtonProps {
   testId: string;
@@ -26,14 +27,10 @@ export const DownloadReportButton: React.FC<DownloadReportButtonProps> = ({
         testId,
         classId,
       });
-      
-      // Log success
-      console.log('Word документ изтеглен успешно');
-      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Неизвестна грешка при изтегляне на документ';
       setError(errorMessage);
-      console.error('Грешка при изтегляне на Word документ:', err);
+      logger.error('Грешка при изтегляне на Word документ:', err);
     } finally {
       setIsLoading(false);
     }

@@ -289,82 +289,25 @@
 
 ---
 
-## 📋 ДЕТАЙЛЕН СПИСЪК ПО ФАЙЛОВЕ
+## 📋 Опционални подобрения (бъдеща работа)
 
-### `vite.config.ts`
-- ❌ Липсват path aliases (@/components, @/hooks, @/lib, @/types, @/utils)
-- ❌ Липсва proxy конфигурация за API
-- ❌ Липсват build optimizations (manual chunks)
+След завършване на точки 1–18 остават по желание:
 
-### `tsconfig.json` / `tsconfig.app.json`
-- ❌ Липсват path mappings за aliases
-- ✅ strict mode е enabled (добре!)
-
-### `src/lib/supabase.ts`
-- ❌ Не е typed с Database types
-- ❌ Липсва валидация на environment variables
-- ✅ Има basic error handling
-
-### `src/lib/api.ts`
-- ✅ Добро error handling
-- ⚠️ Може да се подобри с retry logic
-- ⚠️ Може да се добави request timeout
-
-### `src/context/AppContext.tsx`
-- ❌ Много console.error извиквания (24 места)
-- ⚠️ Някои функции не са memoized
-- ✅ Добро използване на useCallback за fetch функции
-
-### `backend/main.py`
-- ❌ Hardcoded CORS origins
-- ❌ Липсват exception handlers
-- ❌ Използва os.getenv() вместо Pydantic Settings
-- ✅ Добро logging
-- ✅ Добро структуриране на endpoints
-
-### `backend/services/gemini_service.py`
-- ⚠️ Много дълги функции (може да се разделят)
-- ✅ Добро error handling
-- ✅ Добро retry logic
-- ⚠️ Може да се подобри с type hints
-
-### `backend/services/supabase_service.py`
-- ⚠️ Много дълги функции
-- ✅ Добро error handling
-- ⚠️ Code duplication (timestamp parsing)
-- ⚠️ Може да се подобри с type hints
-
----
-
-## 🎯 ПРИОРИТЕТИ ЗА ПОПРАВКА
-
-### Висок приоритет (трябва да се поправи веднага):
-1. Path aliases в vite.config.ts
-2. env.d.ts за type-safe environment variables
-3. Pydantic Settings в backend
-4. Hardcoded CORS origins
-5. console.error в production код
-
-### Среден приоритет (трябва да се поправи скоро):
-6. Error Boundary компонент
-7. Exception handlers в FastAPI
-8. Environment variables validation
-9. Type hints в backend
-10. useCallback оптимизации
-
-### Нисък приоритет (може да се поправи по-късно):
-11. .env.example файлове
-12. Code duplication refactoring
-13. Loading states
-14. Request validation improvements
+| Област | Идея |
+|--------|------|
+| `vite.config.ts` | API proxy, manual chunks за по-малък bundle |
+| `src/lib/api.ts` | Retry logic, request timeout |
+| `backend/main.py` | Разделяне на routers (файлът е ~1500 реда) |
+| `backend/services/*` | По-къси функции, допълнителни type hints |
+| Тестове | Unit/e2e тестове за критични потоци |
+| Шаблони | Пример `.docx` в `backend/templates/` (без реални ученически данни) |
 
 ---
 
 ## 📝 ЗАБЕЛЕЖКИ
 
 - Кодът като цяло е добре структуриран
-- Има добро error handling на много места
-- TypeScript strict mode е enabled (отлично!)
-- Backend използва добри практики за logging
-- Има room за подобрение в code organization и best practices
+- AI provider: само **Google Gemini** (Groq премахнат)
+- TypeScript strict mode е enabled
+- Analytics компонентите използват `logger` вместо `console.log`
 

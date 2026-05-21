@@ -8,6 +8,8 @@
  * npx supabase gen types typescript --project-id "your-project-id" > src/types/database.types.ts
  */
 
+import type { GradeScale, Question, QuestionResult } from '../types.ts'
+
 export type Json =
   | string
   | number
@@ -44,6 +46,7 @@ export interface Database {
           created_at?: string
           updated_at?: string | null
         }
+        Relationships: []
       }
       students: {
         Row: {
@@ -82,6 +85,7 @@ export interface Database {
           created_at?: string
           updated_at?: string | null
         }
+        Relationships: []
       }
       tests: {
         Row: {
@@ -110,8 +114,8 @@ export interface Database {
           type: string
           date: string
           max_points: number
-          grade_scale?: Json | null
-          questions?: Json | null
+          grade_scale?: Json | GradeScale | null
+          questions?: Json | Question[] | null
           subject?: string | null
           teacher_name?: string | null
           total_questions?: number | null
@@ -128,8 +132,8 @@ export interface Database {
           type?: string
           date?: string
           max_points?: number
-          grade_scale?: Json | null
-          questions?: Json | null
+          grade_scale?: Json | GradeScale | null
+          questions?: Json | Question[] | null
           subject?: string | null
           teacher_name?: string | null
           total_questions?: number | null
@@ -138,6 +142,7 @@ export interface Database {
           created_at?: string
           updated_at?: string | null
         }
+        Relationships: []
       }
       results: {
         Row: {
@@ -166,7 +171,7 @@ export interface Database {
           participated?: boolean
           cancelled?: boolean
           cancel_reason?: string | null
-          question_results?: Json | null
+          question_results?: Json | QuestionResult[] | null
           created_at?: string
           updated_at?: string | null
         }
@@ -181,10 +186,11 @@ export interface Database {
           participated?: boolean
           cancelled?: boolean
           cancel_reason?: string | null
-          question_results?: Json | null
+          question_results?: Json | QuestionResult[] | null
           created_at?: string
           updated_at?: string | null
         }
+        Relationships: []
       }
       test_analytics: {
         Row: {
@@ -220,6 +226,7 @@ export interface Database {
           ai_generated_at?: string | null
           created_at?: string
         }
+        Relationships: []
       }
     }
     Views: {

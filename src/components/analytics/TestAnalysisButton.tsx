@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { generateAIAnalysis } from '@/lib/api';
+import { logger } from '@/utils/logger';
 
 interface TestAnalysisButtonProps {
   testId: string;
@@ -30,31 +31,16 @@ export const TestAnalysisButton: React.FC<TestAnalysisButtonProps> = ({
     setError(null);
 
     try {
-      console.log('🚀 Започвам генериране на AI анализ...');
-      console.log('testId:', testId);
-      console.log('classId:', classId);
-      
       const analysis = await generateAIAnalysis(testId, classId);
-      
-      console.log('✅ Получих анализ от API:', analysis);
-      console.log('Тип на analysis:', typeof analysis);
-      console.log('Ключове в analysis:', Object.keys(analysis));
-      
-      // Call callback with analysis
       onAnalysisGenerated(analysis);
-      
-      // Dispatch event за обновяване на историята
+
       window.dispatchEvent(new CustomEvent('ai-analysis-generated', {
         detail: { testId, analysis }
       }));
-      
-      console.log('✅ Извиках onAnalysisGenerated callback и изпратих събитие за обновяване');
-      
     } catch (err) {
-      console.error('❌ ГРЕШКА:', err);
       const errorMessage = err instanceof Error ? err.message : 'Неизвестна грешка при генериране на AI анализ';
       setError(errorMessage);
-      console.error('Грешка при генериране на AI анализ:', err);
+      logger.error('Грешка при генериране на AI анализ:', err);
     } finally {
       setIsLoading(false);
     }

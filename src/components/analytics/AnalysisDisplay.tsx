@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from '@/utils/logger';
 
 interface AnalysisData {
   lowest_results_analysis: string;
@@ -65,7 +66,7 @@ export const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis }) =>
         setCopiedStates((prev) => ({ ...prev, [key]: false }));
       }, 2000);
     } catch (err) {
-      console.error('Грешка при копиране:', err);
+      logger.error('Грешка при копиране:', err);
     }
   };
 

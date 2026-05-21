@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
-import { templateAPI, aiSettingsAPI, type TemplateInfo, type AISettings } from '../../lib/api';
+import { templateAPI, aiSettingsAPI, type TemplateInfo } from '../../lib/api';
 import { logger } from '../../utils/logger';
-import { getErrorMessage, shouldIgnoreError, createErrorHandler } from '../../utils/errorHandler';
+import { getErrorMessage, shouldIgnoreError } from '../../utils/errorHandler';
 
 interface AISettingsModalProps {
   isOpen: boolean;

@@ -39,9 +39,9 @@ export function getErrorMessage(error: AppError, defaultMessage: string = 'Въ�
     }
   }
   
-  // Handle Response objects
+  // Handle Response objects (sync only — getResponseErrorMessage is async)
   if (error instanceof Response) {
-    return getResponseErrorMessage(error, defaultMessage);
+    return `HTTP грешка: ${error.status} ${error.statusText}`;
   }
   
   // Handle string errors

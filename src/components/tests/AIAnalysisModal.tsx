@@ -5,6 +5,7 @@ import { TestAnalysisButton } from '@/components/analytics/TestAnalysisButton';
 import { AnalysisDisplay } from '@/components/analytics/AnalysisDisplay';
 import { DownloadReportButton } from '@/components/analytics/DownloadReportButton';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/utils/logger';
 import './AIAnalysisModal.css';
 
 interface AIAnalysisModalProps {
@@ -86,8 +87,7 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
               results_analysis: analysisObj.results_analysis || analysisObj.results || '',
               improvement_measures: analysisObj.improvement_measures || analysisObj.improvements || '',
             });
-            console.log('✅ Зареден анализ от ai_analysis JSON поле');
-          } 
+          }
           // Fallback към отделни полета (ако съществуват в таблицата)
           else if (analyticsData.lowest_results_analysis || analyticsData.highest_results_analysis) {
             setAiAnalysis({
@@ -97,17 +97,14 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
               results_analysis: analyticsData.results_analysis || '',
               improvement_measures: analyticsData.improvement_measures || '',
             });
-            console.log('✅ Зареден анализ от отделни полета');
           } else {
-            console.log('⚠️ Не е намерен анализ за тест:', testId);
             setAiAnalysis(null);
           }
         } else {
-          console.log('⚠️ Няма данни в базата за тест:', testId);
           setAiAnalysis(null);
         }
       } catch (err) {
-        console.error('Грешка при зареждане на AI анализ:', err);
+        logger.error('Грешка при зареждане на AI анализ:', err);
         setAiAnalysis(null);
       }
     }

@@ -12,36 +12,16 @@ Create a `.env` file in the `backend/` directory with the following variables:
 |----------|-------------|-----------------|
 | `SUPABASE_URL` | Your Supabase project URL | [Supabase Dashboard → Settings → API](https://supabase.com/dashboard) |
 | `SUPABASE_ANON_KEY` | Supabase anonymous/public key | [Supabase Dashboard → Settings → API](https://supabase.com/dashboard) |
-
-**AI Provider Configuration:**
-- You need to set **either** `GEMINI_API_KEY` **or** `GROQ_API_KEY` (not both)
-- Set `AI_PROVIDER=groq` to use Groq (recommended - free with high rate limits)
-- Set `AI_PROVIDER=gemini` to use Google Gemini (default)
+| `GEMINI_API_KEY` | Google Gemini API key (за AI анализи) | [Google AI Studio](https://aistudio.google.com/app/apikey) |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `AI_PROVIDER` | AI provider to use: "groq" or "gemini" | `"gemini"` |
-| `GEMINI_API_KEY` | Google Gemini AI API key (required if AI_PROVIDER=gemini) | [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| `GROQ_API_KEY` | Groq AI API key (required if AI_PROVIDER=groq) | [Groq Console](https://console.groq.com/) - **FREE with 30 req/sec** |
-| `GEMINI_MODEL` | Gemini model to use (e.g., "gemini-1.5-flash", "gemini-1.5-pro") | `None` (auto-detect) |
-| `GROQ_MODEL` | Groq model to use (e.g., "llama-3.3-70b-versatile", "mixtral-8x7b-32768") | `"llama-3.3-70b-versatile"` |
+| `GEMINI_MODEL` | Gemini model (e.g., "gemini-1.5-flash", "gemini-1.5-pro") | `None` (auto-detect) |
 | `PORT` | Server port | `8000` |
 | `HOST` | Server host | `0.0.0.0` |
 | `CLEANUP_API_KEY` | API key for cleanup endpoint protection | `None` (disabled) |
-
-### 🆓 Using Groq (Recommended - Free!)
-
-Groq offers a **completely free tier** with very high rate limits (30 requests/second):
-1. Sign up at [Groq Console](https://console.groq.com/)
-2. Get your free API key
-3. Add to `.env`:
-   ```
-   AI_PROVIDER=groq
-   GROQ_API_KEY=your_groq_api_key_here
-   ```
-4. No credit card required! 🎉
 
 ### Setup Instructions
 
@@ -113,7 +93,7 @@ Health check endpoint
 ### POST `/api/generate-report`
 Генерира AI анализ на тест и връща Word документ за изтегляне.
 
-**Забележка:** Шаблонът, който се използва, е default шаблонът, зададен в AI Settings. За промяна на шаблона използвай `/api/templates` endpoints.
+**Забележка:** Използва се последно каченият шаблон (или последно генерираният). Качи нов шаблон през AI Settings → `/api/templates/upload` — той става активен автоматично.
 
 **Request Body:**
 ```json
@@ -174,7 +154,7 @@ curl -X POST "http://localhost:8000/api/cleanup?max_age_hours=24"
 [
   {
     "name": "test_analysis_template.docx",
-    "is_default": true,
+    "is_default": false,
     "size": 24576
   },
   {
@@ -184,6 +164,8 @@ curl -X POST "http://localhost:8000/api/cleanup?max_age_hours=24"
   }
 ]
 ```
+
+Полето `is_default` е запазено за съвместимост; активният шаблон е последно каченият (`last_used_template` в backend).
 
 ### POST `/api/templates/upload`
 Качва нов шаблон файл.
@@ -207,50 +189,16 @@ curl -X POST "http://localhost:8000/api/templates/upload" \
 }
 ```
 
-### GET `/api/templates/default`
-Получава текущ default шаблон.
-
-**Response:**
-```json
-{
-  "default_template": "test_analysis_template.docx",
-  "exists": true,
-  "path": "/path/to/templates/test_analysis_template.docx"
-}
-```
-
-### POST `/api/templates/default`
-Задава default шаблон (използва се при генериране на доклади).
-
-**Request Body:**
-```json
-{
-  "template_name": "test_analysis_template.docx"
-}
-```
+### GET `/api/templates/{template_name}/variables`
+Връща списък с `{{placeholder}}` променливи в шаблон (за проверка преди генериране).
 
 **Пример с curl:**
 ```bash
-curl -X POST "http://localhost:8000/api/templates/default" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "template_name": "test_analysis_template.docx"
-  }'
-```
-
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Default template set to 'test_analysis_template.docx'",
-  "default_template": "test_analysis_template.docx"
-}
+curl "http://localhost:8000/api/templates/test_analysis_template.docx/variables"
 ```
 
 ### DELETE `/api/templates/{template_name}`
-Изтрива шаблон файл.
-
-**Забележка:** Не може да се изтрие default шаблонът. Първо трябва да зададеш друг шаблон като default.
+Изтрива шаблон файл (локално или от Supabase Storage, ако е конфигуриран).
 
 **Пример с curl:**
 ```bash

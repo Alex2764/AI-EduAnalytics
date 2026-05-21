@@ -2,7 +2,7 @@
 Application configuration with Pydantic Settings
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from typing import List, Optional, Union
 from functools import lru_cache
@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     All settings can be overridden via environment variables or .env file
     """
     
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+    
     # Environment
     environment: str = "development"
     
@@ -28,16 +35,9 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     
-    # AI Provider Configuration
-    ai_provider: str = "gemini"  # Options: "gemini" or "groq"
-    
     # Gemini AI Configuration
     gemini_api_key: Optional[str] = None
     gemini_model: Optional[str] = None  # Optional: specify model name (e.g., "gemini-1.5-flash", "gemini-1.5-pro")
-    
-    # Groq AI Configuration (free alternative with high rate limits)
-    groq_api_key: Optional[str] = None
-    groq_model: str = "llama-3.3-70b-versatile"  # Default Groq model (fast and free)
     
     # Supabase Configuration
     supabase_url: str
@@ -110,29 +110,6 @@ class Settings(BaseSettings):
     
     # Logging
     log_level: str = "INFO"
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        # Allow reading from both UPPERCASE and lowercase env vars
-        # Pydantic will automatically convert to lowercase for field names
-        
-        @classmethod
-        def customise_sources(
-            cls,
-            init_settings,
-            env_settings,
-            file_secret_settings,
-        ):
-            # Prioritize .env file, then environment variables
-            return (
-                init_settings,
-                env_settings,
-                file_secret_settings,
-            )
-
-
 @lru_cache()
 def get_settings() -> Settings:
     """
@@ -160,15 +137,8 @@ def validate_settings(settings: Settings) -> None:
     """
     errors = []
     
-    # Check AI provider configuration
-    if settings.ai_provider == "gemini":
-        if not settings.gemini_api_key:
-            errors.append("GEMINI_API_KEY is required when AI_PROVIDER=gemini")
-    elif settings.ai_provider == "groq":
-        if not settings.groq_api_key:
-            errors.append("GROQ_API_KEY is required when AI_PROVIDER=groq")
-    else:
-        errors.append(f"Invalid AI_PROVIDER: {settings.ai_provider}. Must be 'gemini' or 'groq'")
+    if not settings.gemini_api_key:
+        errors.append("GEMINI_API_KEY is required")
     
     # Check Supabase configuration
     if not settings.supabase_url:

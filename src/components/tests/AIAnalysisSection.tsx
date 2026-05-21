@@ -4,6 +4,7 @@ import { TestAnalysisButton } from '@/components/analytics/TestAnalysisButton';
 import { AnalysisDisplay } from '@/components/analytics/AnalysisDisplay';
 import { DownloadReportButton } from '@/components/analytics/DownloadReportButton';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/utils/logger';
 
 interface AIAnalysisSectionProps {
   testId: string;
@@ -49,7 +50,7 @@ export const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({ testId, cl
           });
         }
       } catch (err) {
-        console.error('Грешка при зареждане на AI анализ:', err);
+        logger.error('Грешка при зареждане на AI анализ:', err);
       }
     }
     
