@@ -26,6 +26,12 @@ interface ImportMetaEnv {
    * @example http://localhost:8000
    */
   readonly VITE_API_BASE_URL?: string;
+
+  /**
+   * Public app URL for student test links (optional).
+   * @example https://tests.example.com
+   */
+  readonly VITE_PUBLIC_APP_URL?: string;
 }
 
 interface ImportMeta {

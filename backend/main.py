@@ -383,6 +383,32 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class CreateTestRequest(BaseModel):
+    """Request model for creating a test"""
+    name: str = Field(..., min_length=1, max_length=200)
+    class_name: str = Field(..., min_length=1, max_length=100)
+    type: str = Field(..., min_length=1, max_length=100)
+    date: str = Field(..., min_length=1, max_length=32)
+    max_points: int = Field(..., gt=0)
+    grade_scale: Dict[str, Any] = Field(..., description="Grade scale thresholds")
+    questions: List[Dict[str, Any]] = Field(default_factory=list)
+    has_groups: bool = Field(False, description="Whether test has two question groups")
+    class_id: Optional[str] = Field(None, max_length=100)
+
+
+class TestTokenInfo(BaseModel):
+    """Access token for a test group"""
+    group_number: int = Field(..., ge=1, le=2)
+    token: str = Field(..., min_length=1)
+
+
+class CreateTestResponse(BaseModel):
+    """Response after creating a test"""
+    success: bool = True
+    test: Dict[str, Any]
+    tokens: List[TestTokenInfo]
+
+
 class TemplateInfo(BaseModel):
     """Template information"""
     name: str
@@ -434,6 +460,21 @@ class AISettings(BaseModel):
 # Removed SetDefaultTemplateRequest - no longer using default template concept
 
 
+def _placeholder_ai_analysis_for_word() -> Dict[str, str]:
+    """Text for Word template when no cached AI analysis exists (no Gemini call)."""
+    hint = (
+        "Няма запазен AI текстов анализ. Генерирайте го отделно с „Генерирай AI анализ“ "
+        "в приложението, след което отново изтеглете Word документа."
+    )
+    return {
+        "lowest_results_analysis": hint,
+        "highest_results_analysis": hint,
+        "gaps_analysis": hint,
+        "results_analysis": hint,
+        "improvement_measures": hint,
+    }
+
+
 # ═══════════════════════════════════════════════════════
 # ENDPOINTS
 # ═══════════════════════════════════════════════════════
@@ -443,6 +484,7 @@ async def root():
     """Root endpoint - API information"""
     endpoints = {
         "health": "/health",
+        "tests": "/api/tests",
         "generate_report": "/api/generate-report",
         "cleanup": "/api/cleanup",
         "templates": "/api/templates"
@@ -507,19 +549,42 @@ async def health_check():
         )
 
 
+@app.post("/api/tests", response_model=CreateTestResponse)
+async def create_test(request: CreateTestRequest):
+    """
+    Create a new test and generate access tokens in test_tokens.
+
+    - has_groups=true: two tokens (group_number 1 and 2)
+    - has_groups=false: one token (group_number 1)
+    """
+    logger.info(
+        f"Create test request: name={request.name!r}, has_groups={request.has_groups}"
+    )
+
+    try:
+        supabase_service = get_supabase_service()
+        result = supabase_service.create_test(request.model_dump())
+        return CreateTestResponse(
+            test=result["test"],
+            tokens=[TestTokenInfo(**t) for t in result["tokens"]],
+        )
+    except SupabaseConnectionError as e:
+        logger.error(f"Create test failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/generate-report")
 async def generate_report(request: GenerateReportRequest):
     """
-    Generate AI-powered test analysis report
+    Generate Word report with test statistics and question success rates.
     
     This endpoint:
-    1. Fetches test data from Supabase
-    2. Generates AI analysis using Google Gemini
-    3. Creates Word document using default template from settings
+    1. Fetches test data from Supabase (includes q1_success … qN_success from results)
+    2. Uses cached AI text only if available — does NOT call Gemini (saves API tokens)
+    3. Creates Word document from template
     4. Returns the document for download
     
-    Note: The template used is the default template set in AI Settings.
-    To change the template, use the /api/templates endpoints.
+    For new AI narrative text, use POST /api/analytics/{test_id}/generate-analysis first.
     
     Args:
         request: GenerateReportRequest with test_id, class_id, etc.
@@ -555,72 +620,26 @@ async def generate_report(request: GenerateReportRequest):
             )
         
         # ═══════════════════════════════════════════════════
-        # STEP 2: Generate AI analysis
+        # STEP 2: AI text for Word (cache only — no Gemini)
+        # Question success rates (q*_success) are already in test_data from step 1.
         # ═══════════════════════════════════════════════════
         
-        logger.info("Step 2/3: Generating AI analysis with Google Gemini...")
+        logger.info("Step 2/3: Loading AI text for Word (cache only, no Gemini call)...")
+        cached_for_word = supabase_service.get_analytics(request.test_id)
+        if cached_for_word and cached_for_word.get("ai_analysis"):
+            ai_analysis = cached_for_word["ai_analysis"]
+            logger.info("Using cached AI narrative sections for Word")
+        else:
+            ai_analysis = _placeholder_ai_analysis_for_word()
+            logger.info("No cached AI text — placeholder narrative (percentages still from DB)")
         
-        try:
-            # Check if we have cached AI analysis
-            supabase_service = get_supabase_service()
-            cached_analytics = supabase_service.get_analytics(request.test_id)
-            
-            if cached_analytics and cached_analytics.get("ai_analysis"):
-                logger.info("Using cached AI analysis")
-                ai_analysis = cached_analytics["ai_analysis"]
-            else:
-                logger.info("No cached AI analysis, generating fresh...")
-                ai_service = get_gemini_service()
-                ai_analysis = ai_service.generate_analysis(test_data)
-                
-                # Save AI analysis to cache
-                if cached_analytics:
-                    # Update existing cache with AI analysis
-                    statistics = cached_analytics.get("statistics", {})
-                    question_success_rates = cached_analytics.get("question_success_rates", {})
-                    supabase_service.save_analytics(
-                        request.test_id,
-                        statistics,
-                        question_success_rates,
-                        ai_analysis=ai_analysis
-                    )
-                else:
-                    # Extract statistics and question success rates from test_data for caching
-                    statistics = {}
-                    question_success_rates = {}
-                    for key, value in test_data.items():
-                        if key.startswith('q') and key.endswith('_success'):
-                            question_success_rates[key] = value
-                        elif key not in ['test_id', 'test_name', 'class_id', 'class_name', 
-                                        'subject', 'teacher_name', 'students', 'results', 'test',
-                                        'total_questions', 'mc_questions', 'short_questions', 'max_points_test']:
-                            statistics[key] = value
-                    
-                    supabase_service.save_analytics(
-                        request.test_id,
-                        statistics,
-                        question_success_rates,
-                        ai_analysis=ai_analysis
-                    )
-                
-                logger.info("AI analysis generated and cached successfully")
-            
-            logger.debug(f"AI sections: {list(ai_analysis.keys())}")
-            
-        except GeminiAPIError as e:
-            logger.error(f"Gemini API error: {e}")
-            # Return 429 for rate limit errors, 500 for other API errors
-            status_code = 429 if e.is_rate_limit else 500
-            raise HTTPException(
-                status_code=status_code,
-                detail=str(e)
-            )
-        except ParsingError as e:
-            logger.error(f"AI parsing error: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"AI response parsing error: {str(e)}"
-            )
+        rate_keys = [k for k in test_data if k.startswith("q") and k.endswith("_success")]
+        logger.info(
+            f"Passing {len(rate_keys)} question success rates to Word template "
+            f"(sample: {[(k, test_data[k]) for k in rate_keys[:3]]})"
+        )
+        
+        logger.debug(f"AI sections for template: {list(ai_analysis.keys())}")
         
         # ═══════════════════════════════════════════════════
         # STEP 3: Create Word document

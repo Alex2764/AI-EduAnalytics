@@ -31,11 +31,68 @@ export interface AISettings {
   max_output_tokens?: number;
 }
 
+export interface TestTokenInfo {
+  group_number: number;
+  token: string;
+}
+
+export interface CreateTestPayload {
+  name: string;
+  class_name: string;
+  class_id?: string | null;
+  type: string;
+  date: string;
+  max_points: number;
+  grade_scale: Record<string, number | string>;
+  questions: unknown[];
+  has_groups: boolean;
+}
+
+export interface CreateTestResponse {
+  success: boolean;
+  test: Record<string, unknown>;
+  tokens: TestTokenInfo[];
+}
+
 export interface DefaultTemplateResponse {
   default_template: string;
   exists: boolean;
   path: string | null;
 }
+
+// ════════════════════════════════════════════════════════
+// TESTS
+// ════════════════════════════════════════════════════════
+
+export const testsAPI = {
+  /**
+   * Create a test via backend (generates test_tokens).
+   */
+  async createTest(payload: CreateTestPayload): Promise<CreateTestResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/tests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        await handleFetchError(response, 'Грешка при създаване на тест');
+      }
+
+      return response.json();
+    } catch (error) {
+      if (error instanceof Error && isBackendConnectionError(error.message)) {
+        throw new Error(
+          'Backend сървърът не е стартиран. Моля, стартирайте backend сървъра на порт 8000.'
+        );
+      }
+      throw error;
+    }
+  },
+};
 
 // ════════════════════════════════════════════════════════
 // TEMPLATE MANAGEMENT

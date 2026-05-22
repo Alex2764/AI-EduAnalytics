@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Class, Student, Test, Result } from '../types';
+import { testsAPI } from '../lib/api';
+import type { Class, Student, Test, Result, Question } from '../types';
 import { logger } from '../utils/logger';
 
 interface AppContextType {
@@ -136,7 +137,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 date: item.date,
                 maxPoints: maxPoints,
                 gradeScale: gradeScale,
-                questions: item.questions || [],
+                hasGroups:
+                  item.has_groups ??
+                  item.hasGroups ??
+                  (item.questions || []).some(
+                    (q: Question) => Boolean(q.group1?.text && q.group2?.text)
+                  ),
+                mode: item.mode === 'online' ? 'online' : 'offline',
+                questions: (item.questions || []).map((q: Question) => ({
+                  ...q,
+                  type: q.type ?? 'short_answer',
+                })),
               };
       });
       
@@ -375,26 +386,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addTest = useCallback(async (testData: Omit<Test, 'id'>) => {
     try {
-      // Find class_id by class name
       const classRecord = classes.find(c => c.name === testData.class);
-      
-            const { error } = await supabase
-              .from('tests')
-              .insert([{
-                name: testData.name,
-                class_id: classRecord?.id || null,
-                class_name: testData.class,
-                type: testData.type,
-                date: testData.date,
-                max_points: testData.maxPoints,
-                grade_scale: testData.gradeScale,
-                questions: testData.questions || []
-              }])
-              .select()
-              .single();
 
-      if (error) throw error;
-      
+      const { tokens } = await testsAPI.createTest({
+        name: testData.name,
+        class_id: classRecord?.id ?? null,
+        class_name: testData.class,
+        type: testData.type,
+        date: testData.date,
+        max_points: testData.maxPoints,
+        grade_scale: testData.gradeScale,
+        questions: testData.questions || [],
+        has_groups: testData.hasGroups,
+      });
+
+      logger.info('Test created with tokens:', tokens);
+
       await fetchTests();
     } catch (err: any) {
       logger.error('Error adding test:', err);
@@ -412,6 +419,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (testData.maxPoints) updateData.max_points = testData.maxPoints;
             if (testData.gradeScale) updateData.grade_scale = testData.gradeScale;
             if (testData.questions) updateData.questions = testData.questions;
+      if (testData.hasGroups !== undefined) updateData.has_groups = testData.hasGroups;
       
       if (testData.class) {
         const classRecord = classes.find(c => c.name === testData.class);

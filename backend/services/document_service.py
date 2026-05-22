@@ -8,7 +8,10 @@ import logging
 import json
 import tempfile
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from docx.table import Table
 from datetime import datetime, timedelta
 
 try:
@@ -114,6 +117,10 @@ class DocumentService:
             # 3. Build context for template
             context = self._build_context(test_data, ai_analysis)
             
+            # Rows to drop from Table 3: only when both q{i}_text and q{i}_success are ""
+            # (computed before empty success values are coerced to "0%")
+            question_rows_both_empty = self._question_rows_both_empty(context)
+            
             # 4. Render document
             doc = DocxTemplate(str(template_path))
             
@@ -148,28 +155,13 @@ class DocumentService:
                 if fixed_count > 0:
                     logger.warning(f"Fixed {fixed_count} missing/empty question success values")
             
-            # Ensure Q11-Q19 are ALWAYS in context for template compatibility
-            q11_19_added = 0
-            for i in range(11, 20):
-                key = f'q{i}_success'
-                if key not in context or context[key] is None or str(context[key]).strip() == '' or str(context[key]).strip() == 'None':
-                    context[key] = "0%"
-                    q11_19_added += 1
-            
-            if q11_19_added > 0:
-                logger.debug(f"Added {q11_19_added} Q11-Q19 values for template compatibility")
-            
             # Check for missing keys (only log warnings/errors)
-            total_questions_for_log = total_questions_from_context if total_questions_from_context > 0 else context.get('total_questions', 0)
-            if total_questions_for_log > 0:
-                max_q_to_log = max(19, total_questions_for_log)
+            if total_questions_from_context > 0:
                 missing_keys = []
-                
-                for i in range(1, max_q_to_log + 1):
+                for i in range(1, total_questions_from_context + 1):
                     key = f'q{i}_success'
                     if key not in context:
                         missing_keys.append(key)
-                
                 if missing_keys:
                     logger.error(f"Missing question success keys in context: {missing_keys}")
             
@@ -194,6 +186,10 @@ class DocumentService:
             
             # 6. Save document
             doc.save(str(output_path))
+            
+            # 7. Remove Table 3 rows where both q{i}_text and q{i}_success are ""
+            self._trim_question_table_rows(str(output_path), question_rows_both_empty)
+            
             logger.info(f"Document generated successfully: {output_filename}")
             
             return str(output_path)
@@ -258,6 +254,107 @@ class DocumentService:
                 logger.warning(f"Section '{section}' is very short ({len(ai_analysis[section])} chars) - may be replaced with default")
         
         logger.debug(f"AI analysis validation: {len(existing_sections)}/{len(required_sections)} sections found")
+    
+    def _resolve_question_count(self, test_data: Dict[str, Any]) -> int:
+        """Return the number of questions actually in the test."""
+        questions = test_data.get('test', {}).get('questions', [])
+        if isinstance(questions, str):
+            try:
+                questions = json.loads(questions)
+            except json.JSONDecodeError:
+                questions = []
+        if questions:
+            return len(questions)
+        return int(test_data.get('total_questions', 0) or 0)
+    
+    def _find_question_achievement_table(self, doc) -> Optional["Table"]:
+        """Locate Table 3 (question achievement rates) in the rendered document."""
+        best_table = None
+        best_data_rows = 0
+        
+        for table in doc.tables:
+            full_text = " ".join(
+                cell.text for row in table.rows for cell in row.cells
+            ).lower()
+            if "постижимост" in full_text or "проверявани компетентности" in full_text:
+                return table
+            
+            data_rows = sum(
+                1 for row in table.rows
+                if row.cells[0].text.strip().isdigit()
+            )
+            if data_rows > best_data_rows:
+                best_data_rows = data_rows
+                best_table = table
+        
+        return best_table if best_data_rows >= 3 else None
+    
+    @staticmethod
+    def _question_row_both_empty(context: Dict[str, Any], question_index: int) -> bool:
+        """True when both q{i}_text and q{i}_success are exactly empty strings."""
+        text = context.get(f'q{question_index}_text', '')
+        success = context.get(f'q{question_index}_success', '')
+        if text is None:
+            text = ''
+        if success is None:
+            success = ''
+        if not isinstance(text, str):
+            text = str(text)
+        if not isinstance(success, str):
+            success = str(success)
+        return text == '' and success == ''
+    
+    def _question_rows_both_empty(self, context: Dict[str, Any]) -> set:
+        """Question numbers (1–24) whose text and success are both "" in context."""
+        return {
+            i for i in range(1, 25)
+            if self._question_row_both_empty(context, i)
+        }
+    
+    def _trim_question_table_rows(self, doc_path: str, rows_to_remove: set) -> None:
+        """
+        Remove Table 3 data rows for questions where both q{i}_text and q{i}_success
+        are empty strings. Keeps a row if either field has a value.
+        """
+        if not rows_to_remove:
+            return
+        
+        try:
+            from docx import Document
+        except ImportError:
+            logger.warning("python-docx not available — skipping table row trim")
+            return
+        
+        doc = Document(doc_path)
+        table = self._find_question_achievement_table(doc)
+        if table is None:
+            logger.warning("Question achievement table not found — skipping row trim")
+            return
+        
+        header_row_count = 0
+        for row in table.rows:
+            if row.cells[0].text.strip().isdigit():
+                break
+            header_row_count += 1
+        
+        removed = 0
+        for row in reversed(table.rows[header_row_count:]):
+            cell_text = row.cells[0].text.strip()
+            if not cell_text.isdigit():
+                continue
+            q_num = int(cell_text)
+            if q_num in rows_to_remove:
+                table._tbl.remove(row._tr)
+                removed += 1
+        
+        if removed <= 0:
+            return
+        
+        doc.save(doc_path)
+        logger.info(
+            f"Trimmed {removed} question table rows (both text and success empty): "
+            f"{sorted(rows_to_remove)}"
+        )
     
     def _load_template(self, template_name: Optional[str] = None) -> Path:
         """
@@ -347,10 +444,8 @@ class DocumentService:
         
         logger.debug("Building template context...")
         
-        # CRITICAL: Get actual question count before building context
-        # We'll set total_questions=19 in context for template loop compatibility
-        actual_questions = test_data.get('total_questions', 0)
-        logger.info(f"Setting total_questions=19 for template compatibility (actual test has {actual_questions} questions)")
+        total_questions = self._resolve_question_count(test_data)
+        logger.info(f"Building context for {total_questions} test questions")
         
         # Basic information
         context = {
@@ -365,11 +460,7 @@ class DocumentService:
             'girls_count': test_data.get('girls_count', 0),
             
             # Test information
-            # CRITICAL: Set total_questions to 19 for template loop compatibility
-            # Template expects up to 19 questions in Table 3, so we set it to 19
-            # This ensures Q11-Q19 are included in the loop even if test has fewer questions
-            'total_questions': 19,  # Always 19 for template compatibility (Table 3 has rows for Q1-Q19)
-            'actual_total_questions': actual_questions,  # Keep original count for other uses
+            'total_questions': total_questions,
             'mc_questions': test_data.get('mc_questions', 0),
             'short_questions': test_data.get('short_questions', 0),
             
@@ -416,66 +507,49 @@ class DocumentService:
             'improvement_measures': ai_analysis.get('improvement_measures', ''),
         })
         
-        # Add question success rates dynamically
-        # CRITICAL: Ensure ALL q*_success values from 1 to total_questions are in context
-        questions = test_data.get('test', {}).get('questions', [])
-        
-        # Parse questions if it's a JSON string
-        if isinstance(questions, str):
-            try:
-                questions = json.loads(questions)
-            except:
-                questions = []
-        
-        # CRITICAL: Use len(questions) if available, as it's the actual count of questions in the test
-        # This ensures we calculate rates for ALL questions (e.g., if test has 19 questions but total_questions=10)
-        questions_count = len(questions) if questions else 0
-        test_data_total = test_data.get('total_questions', 0)
-        # Use the maximum - either from test_data or from actual questions array
-        total_questions = max(test_data_total, questions_count) if test_data_total > 0 or questions_count > 0 else 0
-        
-        # For template compatibility, we need up to 19 questions (Table 3 has rows for Q1-Q19)
-        template_total_questions = 19
-        
-        if total_questions > 0 or template_total_questions > 0:
-            max_questions = max(total_questions, template_total_questions)
+        # Add question success rates for each question in the test only
+        if total_questions > 0:
+            existing_rates = {
+                k: v for k, v in test_data.items()
+                if k.startswith('q') and k.endswith('_success')
+            }
             
-            existing_rates = {k: v for k, v in test_data.items() if k.startswith('q') and k.endswith('_success')}
-            
-            # Ensure ALL questions from 1 to max_questions (19) have a value in context
-            # This prevents empty cells in the document
-            for i in range(1, max_questions + 1):
+            for i in range(1, total_questions + 1):
                 key = f'q{i}_success'
+                value = test_data.get(key) or existing_rates.get(key)
                 
-                # Try multiple ways to find the value
-                value = None
-                
-                # 1. Direct key in test_data (from fresh calculation or merged cache)
-                if key in test_data:
-                    value = test_data[key]
-                
-                # 2. Check if it's in existing_rates dict (already extracted above)
-                if value is None and key in existing_rates:
-                    value = existing_rates[key]
-                
-                # 3. Fallback to 0% if not found
                 if value is None:
-                    if i <= questions_count:
-                        logger.warning(f"Q{i}: Question exists in test but no success rate found, using 0%")
-                    value = '0%'
-                
-                # Ensure value is a string and never empty
-                if value is None or value == '':
+                    logger.warning(f"Q{i}: no success rate found, using 0%")
                     value = '0%'
                 elif not isinstance(value, str):
                     value = str(value)
-                    # Ensure it ends with % if it's a number
                     if value.replace('.', '').replace('-', '').isdigit():
                         value = f"{value}%"
                 
                 context[key] = str(value).strip() if value else '0%'
         else:
-            logger.warning(f"No questions to add (total_questions={total_questions})")
+            logger.warning("No questions to add (total_questions=0)")
+        
+        questions = (test_data.get('test') or {}).get('questions') or []
+        for i in range(1, 25):
+            key = f'q{i}_text'
+            idx = i - 1
+            if idx < len(questions):
+                context[key] = questions[idx].get('text', '') or ''
+            else:
+                context[key] = ''
+        
+        for i in range(1, 25):
+            idx = i - 1
+            if idx < len(questions):
+                q = questions[idx]
+                g1 = q.get('group1') or {}
+                g2 = q.get('group2') or {}
+                context[f'g{i}_q1_correct'] = g1.get('correctAnswer', '') or ''
+                context[f'g{i}_q2_correct'] = g2.get('correctAnswer', '') or ''
+            else:
+                context[f'g{i}_q1_correct'] = ''
+                context[f'g{i}_q2_correct'] = ''
         
         # Ensure AI analysis sections always have content (never empty)
         # Add default text if section is missing or empty

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 type InputType = 'text' | 'number' | 'date' | 'email' | 'password';
 
@@ -18,6 +18,7 @@ interface InputProps {
   error?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -36,16 +37,21 @@ export const Input: React.FC<InputProps> = ({
   error,
   className = '',
   disabled = false,
+  id: idProp,
 }) => {
+  const autoId = useId();
+  const inputId = idProp ?? (label ? autoId : undefined);
+
   return (
     <div className={`form-group ${className}`}>
       {label && (
-        <label>
+        <label htmlFor={inputId}>
           {label}
           {required && <span className="text-red-600 ml-1">*</span>}
         </label>
       )}
       <input
+        id={inputId}
         type={type}
         value={typeof value === 'number' ? String(value) : (value || '')}
         onChange={onChange}

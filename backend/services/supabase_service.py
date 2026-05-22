@@ -5,6 +5,7 @@ Supabase Service for fetching test data
 import logging
 import random
 import json
+import uuid
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from supabase import create_client, Client
@@ -59,6 +60,69 @@ class SupabaseService:
             error_msg = f"Failed to initialize Supabase client: {e}"
             logger.error(error_msg)
             raise SupabaseConnectionError(error_msg)
+    
+    def _parse_question_results_field(self, result: Dict[str, Any]) -> None:
+        """Normalize question_results on a result row (mutates in place)."""
+        qr = result.get("question_results")
+        if qr is None:
+            qr = result.get("questionResults")
+        if isinstance(qr, str):
+            try:
+                qr = json.loads(qr)
+            except (json.JSONDecodeError, TypeError):
+                qr = []
+        if qr is None:
+            qr = []
+        result["question_results"] = qr
+    
+    def _normalize_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        for result in results:
+            self._parse_question_results_field(result)
+        return results
+    
+    def _question_success_rates_usable(
+        self,
+        question_success_rates: Dict[str, Any],
+        expected_count: int = 0,
+    ) -> bool:
+        """
+        Return True if cache has at least one parsed non-zero question success rate.
+        Empty cache or all 0% triggers recalculation from live results.
+        """
+        if not question_success_rates:
+            return False
+        
+        found_any = False
+        found_nonzero = False
+        
+        for key, value in question_success_rates.items():
+            if not (isinstance(key, str) and key.startswith("q") and key.endswith("_success")):
+                continue
+            found_any = True
+            raw = str(value).strip().rstrip("%")
+            try:
+                if float(raw) > 0:
+                    found_nonzero = True
+                    break
+            except ValueError:
+                continue
+        
+        if not found_any:
+            return False
+        
+        if found_nonzero:
+            return True
+        
+        # All zeros — only trust cache if we have a rate for each expected question
+        if expected_count <= 0:
+            return False
+        
+        for i in range(1, expected_count + 1):
+            if f"q{i}_success" not in question_success_rates:
+                return False
+        
+        # All explicitly zero — may be valid; still recalc to pick up new question_results data
+        return False
     
     def get_test_analysis_data(
         self,
@@ -328,18 +392,41 @@ class SupabaseService:
             # This is needed even when using cache to properly calculate total_questions
             test_data["test"] = test
             
-            # CRITICAL: If using cache, ensure ALL question success rates from 1 to total_questions exist
-            # Cache might only have q1-q3, but total_questions might be 19
-            # This prevents missing q4-q19 in test_data
-            if cached_analytics and final_total_questions > 0:
-                logger.info(f"Ensuring all {final_total_questions} question success rates exist in test_data (cache had {len(question_success_rates)} rates)")
+            # Recalculate question success rates when cache is missing or unusable (all 0% / empty)
+            rates_usable = self._question_success_rates_usable(
+                question_success_rates if cached_analytics else {},
+                final_total_questions,
+            )
+            if final_total_questions > 0 and not rates_usable:
+                logger.info(
+                    "Recalculating question success rates from results "
+                    f"(cache had {len(question_success_rates)} entries, usable={rates_usable})"
+                )
+                results_for_questions = self._get_test_results(test_id)
+                fresh_question_stats = self._calculate_question_success(results_for_questions, test)
+                test_data.update(fresh_question_stats)
+                try:
+                    stats_for_cache = {
+                        k: v for k, v in test_data.items()
+                        if not (k.startswith("q") and k.endswith("_success"))
+                        and k not in ("test_id", "test_name", "class_id", "class_name",
+                                      "subject", "teacher_name", "students", "results", "test",
+                                      "total_questions", "mc_questions", "short_questions", "max_points_test")
+                    }
+                    self.save_analytics(
+                        test_id,
+                        stats_for_cache,
+                        fresh_question_stats,
+                        cached_analytics.get("ai_analysis") if cached_analytics else None,
+                    )
+                except Exception as cache_error:
+                    logger.warning(f"Failed to refresh question success cache: {cache_error}")
+            elif cached_analytics and final_total_questions > 0:
+                # Fill only missing keys from cache (do not overwrite valid recalculated values)
                 for i in range(1, final_total_questions + 1):
                     key = f"q{i}_success"
                     if key not in test_data:
-                        # Missing from cache - add with 0%
-                        test_data[key] = "0%"
-                        logger.debug(f"Added missing {key} = '0%' to test_data")
-                logger.info(f"Verified all {final_total_questions} question success rates are present in test_data")
+                        test_data[key] = question_success_rates.get(key, "0%")
             
             # Only add raw data if not using cache (need it for fresh calculations)
             if not cached_analytics:
@@ -401,6 +488,101 @@ class SupabaseService:
             logger.warning(f"Error reading AI settings from config: {e}")
             return {}
     
+    @staticmethod
+    def _group_numbers_for_test(has_groups: bool) -> List[int]:
+        """Return group_number values to create in test_tokens."""
+        return [1, 2] if has_groups else [1]
+
+    @staticmethod
+    def _generate_access_token() -> str:
+        """Generate a unique random token (UUID v4)."""
+        return str(uuid.uuid4())
+
+    def create_test(self, test_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a test and associated access tokens in test_tokens.
+
+        If has_groups is true, creates tokens for group_number 1 and 2.
+        Otherwise creates a single token with group_number 1.
+
+        Args:
+            test_data: Test fields (name, class_name, type, date, max_points,
+                       grade_scale, questions, has_groups, class_id optional)
+
+        Returns:
+            Dict with "test" (created row) and "tokens" (list of
+            {group_number, token}).
+
+        Raises:
+            SupabaseConnectionError: If insert fails
+        """
+        has_groups = bool(test_data.get("has_groups", False))
+        group_numbers = self._group_numbers_for_test(has_groups)
+
+        insert_payload = {
+            "name": test_data["name"],
+            "class_id": test_data.get("class_id"),
+            "class_name": test_data["class_name"],
+            "type": test_data["type"],
+            "date": test_data["date"],
+            "max_points": int(test_data["max_points"]),
+            "grade_scale": test_data.get("grade_scale"),
+            "questions": test_data.get("questions") or [],
+            "has_groups": has_groups,
+        }
+
+        logger.info(
+            f"Creating test: name={insert_payload['name']!r}, "
+            f"has_groups={has_groups}, token_groups={group_numbers}"
+        )
+
+        test_id: Optional[str] = None
+        try:
+            test_response = self.client.table("tests").insert(insert_payload).execute()
+            if not test_response.data:
+                raise SupabaseConnectionError("Test insert returned no data")
+            test_row = test_response.data[0]
+            test_id = test_row["id"]
+
+            token_rows = [
+                {
+                    "test_id": test_id,
+                    "token": self._generate_access_token(),
+                    "group_number": group_number,
+                }
+                for group_number in group_numbers
+            ]
+
+            tokens_response = (
+                self.client.table("test_tokens").insert(token_rows).execute()
+            )
+            if not tokens_response.data:
+                raise SupabaseConnectionError("test_tokens insert returned no data")
+
+            tokens = [
+                {
+                    "group_number": row["group_number"],
+                    "token": row["token"],
+                }
+                for row in tokens_response.data
+            ]
+
+            logger.info(f"Test created: id={test_id}, tokens={len(tokens)}")
+            return {"test": test_row, "tokens": tokens}
+
+        except SupabaseConnectionError:
+            raise
+        except Exception as e:
+            if test_id:
+                try:
+                    self.client.table("tests").delete().eq("id", test_id).execute()
+                    logger.warning(f"Rolled back test {test_id} after token creation failure")
+                except Exception as rollback_error:
+                    logger.error(f"Failed to roll back test {test_id}: {rollback_error}")
+            error_msg = f"Failed to create test: {e}"
+            logger.error(error_msg)
+            raise SupabaseConnectionError(error_msg) from e
+
     def _get_test(self, test_id: str) -> Optional[Dict[str, Any]]:
         """
         Fetch test by ID from Supabase
@@ -555,7 +737,7 @@ class SupabaseService:
                     self.results_table_name = table_name
                     logger.info(f"Auto-detected results table: {table_name}")
                 
-                return results
+                return self._normalize_results(results)
                 
             except Exception as e:
                 logger.debug(f"Table '{table_name}' not accessible: {e}")
@@ -904,10 +1086,11 @@ class SupabaseService:
             total_points_earned = 0
             students_with_answer = 0
             
+            normalized_possible_ids = {pid.lower() for pid in possible_ids}
+            
             for result in valid_results:
                 question_results = result.get("question_results") or result.get("questionResults")
                 
-                # Handle JSON string if needed
                 if isinstance(question_results, str):
                     try:
                         question_results = json.loads(question_results)
@@ -916,49 +1099,29 @@ class SupabaseService:
                         continue
                 
                 if not question_results or not isinstance(question_results, list):
-                    # No question-level data for this result
                     continue
                 
-                # Find this question's result - try all possible ID formats
                 question_result = None
+                
+                # 1) Match by questionId / question_id
                 for qr in question_results:
                     qr_id = qr.get("questionId") or qr.get("question_id") or qr.get("id")
-                    if qr_id:
-                        qr_id_str = str(qr_id).strip().lower()
-                        # Try matching any of the possible IDs
-                        if qr_id_str in [pid.lower() for pid in possible_ids]:
+                    if qr_id is None:
+                        continue
+                    qr_id_str = str(qr_id).strip().lower()
+                    if qr_id_str in normalized_possible_ids:
+                        question_result = qr
+                        break
+                    try:
+                        if int(float(qr_id)) == i:
                             question_result = qr
                             break
-                        # Also try numeric index matching (if question_results uses array index)
-                        try:
-                            if isinstance(qr_id, (int, float)) and int(qr_id) == i:
-                                question_result = qr
-                                break
-                        except:
-                            pass
+                    except (ValueError, TypeError):
+                        pass
                 
-                # If not found by ID, try by array index ONLY as last resort
-                # WARNING: This is risky - only use if we're sure question_results is ordered correctly
-                # and matches the questions array exactly
+                # 2) Match by position in array (frontend saves questions in test order)
                 if not question_result and i <= len(question_results):
-                    # Only use array index if question exists in questions array at this position
-                    # This prevents matching wrong questions for Q12-Q19 when question_results is shorter
-                    if i <= len(questions):
-                        potential_result = question_results[i - 1]
-                        # Double-check: try to verify this result doesn't have a mismatched questionId
-                        potential_id = potential_result.get("questionId") or potential_result.get("question_id") or potential_result.get("id")
-                        # If it has no ID or ID matches, use it
-                        if not potential_id:
-                            question_result = potential_result
-                            logger.debug(f"Q{i}: Using array index {i-1} (no ID in result to verify)")
-                        else:
-                            # Check if ID matches current question
-                            potential_id_str = str(potential_id).strip().lower()
-                            if potential_id_str in [pid.lower() for pid in possible_ids]:
-                                question_result = potential_result
-                                logger.debug(f"Q{i}: Using array index {i-1} (ID verified)")
-                            else:
-                                logger.warning(f"Q{i}: Skipped array index match - ID mismatch (result ID: {potential_id}, looking for: {possible_ids[:3]})")
+                    question_result = question_results[i - 1]
                 
                 if question_result:
                     # CRITICAL: Don't use "or" operator - 0 is a valid points value!

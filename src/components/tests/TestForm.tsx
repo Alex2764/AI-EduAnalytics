@@ -5,7 +5,17 @@ import { Select } from '../common/Select';
 import { Stepper } from '../common/Stepper';
 import { useAppContext } from '../../context/AppContext';
 import { getCurrentDate } from '../../utils/dateFormatter';
-import type { TestType, GradeScale, Question } from '../../types';
+import {
+  OPTION_LABELS,
+  emptyQuestionOptions,
+  validateQuestions,
+} from '../../utils/validateQuestions';
+import type { TestType, GradeScale, Question, QuestionType } from '../../types';
+
+const questionTypeOptions: { value: QuestionType; label: string }[] = [
+  { value: 'short_answer', label: 'С кратък отговор' },
+  { value: 'multiple_choice', label: 'С избираем отговор' },
+];
 
 const testTypeOptions: { value: TestType; label: string }[] = [
   { value: 'Нормален тест', label: 'Нормален тест' },
@@ -43,8 +53,10 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
     grade5: '',
     grade6: '',
   });
+  const [hasGroups, setHasGroups] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionCount, setQuestionCount] = useState<string>('');
+  const [questionGroupTabs, setQuestionGroupTabs] = useState<Record<string, 'group1' | 'group2'>>({});
   const [loading, setLoading] = useState(false);
 
   const classOptions = useMemo(() => classes.map(cls => ({
@@ -80,9 +92,14 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
           return false;
         }
         return true;
-      case 3:
-        // Въпросите са опционални, няма нужда от валидация
+      case 3: {
+        const questionError = validateQuestions(questions, hasGroups);
+        if (questionError) {
+          setError(questionError);
+          return false;
+        }
         return true;
+      }
       default:
         return true;
     }
@@ -128,6 +145,89 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
     }
   };
 
+  const emptyQuestionGroup = () => ({ text: '', correctAnswer: '' });
+
+  const createEmptyQuestion = (id: string): Question => ({
+    id,
+    text: '',
+    points: 0,
+    type: 'short_answer',
+    ...(hasGroups
+      ? { group1: emptyQuestionGroup(), group2: emptyQuestionGroup() }
+      : {}),
+  });
+
+  const normalizeGroupForType = (
+    group: Question['group1'],
+    newType: QuestionType,
+    prevType: QuestionType
+  ): NonNullable<Question['group1']> => {
+    const base = group ?? emptyQuestionGroup();
+    if (newType === 'multiple_choice') {
+      return {
+        ...base,
+        options: base.options?.length === 4 ? base.options : emptyQuestionOptions(),
+        correctAnswer: prevType === 'multiple_choice' ? base.correctAnswer : '',
+      };
+    }
+    return {
+      ...base,
+      options: undefined,
+      correctAnswer: prevType === 'short_answer' ? base.correctAnswer : '',
+    };
+  };
+
+  const handleHasGroupsChange = (twoGroups: boolean) => {
+    setHasGroups(twoGroups);
+    if (twoGroups) {
+      setQuestions(prev =>
+        prev.map(q => ({
+          ...q,
+          group1: normalizeGroupForType(
+            {
+              text: q.group1?.text ?? q.text ?? '',
+              correctAnswer: q.group1?.correctAnswer ?? q.correctAnswer ?? '',
+              options: q.group1?.options ?? q.options,
+            },
+            q.type,
+            q.type
+          ),
+          group2: normalizeGroupForType(q.group2 ?? emptyQuestionGroup(), q.type, q.type),
+        }))
+      );
+    } else {
+      setQuestions(prev =>
+        prev.map(q => ({
+          ...q,
+          text: q.group1?.text ?? q.text ?? '',
+          correctAnswer: q.group1?.correctAnswer ?? q.correctAnswer ?? '',
+          options: q.group1?.options ?? q.options,
+          group1: undefined,
+          group2: undefined,
+        }))
+      );
+      setQuestionGroupTabs({});
+    }
+  };
+
+  const getQuestionGroupTab = (questionId: string): 'group1' | 'group2' =>
+    questionGroupTabs[questionId] ?? 'group1';
+
+  const setQuestionGroupTab = (questionId: string, tab: 'group1' | 'group2') => {
+    setQuestionGroupTabs(prev => ({ ...prev, [questionId]: tab }));
+  };
+
+  const updateQuestionGroup = (
+    index: number,
+    group: 'group1' | 'group2',
+    field: 'text' | 'correctAnswer',
+    value: string
+  ) => {
+    const q = questions[index];
+    const current = q[group] ?? emptyQuestionGroup();
+    updateQuestion(index, { [group]: { ...current, [field]: value } });
+  };
+
   // Функции за управление на въпросите
   const addQuestion = () => {
     const count = parseInt(questionCount);
@@ -135,11 +235,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
       const newQuestions: Question[] = [];
       
       for (let i = 0; i < count; i++) {
-        newQuestions.push({
-          id: `q${questions.length + i + 1}`,
-          text: '',
-          points: 0,
-        });
+        newQuestions.push(createEmptyQuestion(`q${questions.length + i + 1}`));
       }
       
       setQuestions([...questions, ...newQuestions]);
@@ -148,24 +244,57 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
   };
 
   const addSingleQuestion = () => {
-    const newQuestion: Question = {
-      id: `q${questions.length + 1}`,
-      text: '',
-      points: 0,
-    };
-    setQuestions([...questions, newQuestion]);
+    setQuestions([...questions, createEmptyQuestion(`q${questions.length + 1}`)]);
   };
 
-  const updateQuestionText = (index: number, text: string) => {
+  const updateQuestion = (index: number, updates: Partial<Question>) => {
     const newQuestions = [...questions];
-    newQuestions[index] = { ...newQuestions[index], text };
+    newQuestions[index] = { ...newQuestions[index], ...updates };
     setQuestions(newQuestions);
   };
 
-  const updateQuestionPoints = (index: number, points: number) => {
-    const newQuestions = [...questions];
-    newQuestions[index] = { ...newQuestions[index], points };
-    setQuestions(newQuestions);
+  const updateQuestionType = (index: number, type: QuestionType) => {
+    const q = questions[index];
+    if (hasGroups) {
+      updateQuestion(index, {
+        type,
+        group1: normalizeGroupForType(q.group1, type, q.type),
+        group2: normalizeGroupForType(q.group2, type, q.type),
+      });
+      return;
+    }
+    if (type === 'multiple_choice') {
+      updateQuestion(index, {
+        type,
+        options: q.options?.length === 4 ? q.options : emptyQuestionOptions(),
+        correctAnswer: q.type === 'multiple_choice' ? q.correctAnswer : '',
+      });
+    } else {
+      updateQuestion(index, {
+        type,
+        options: undefined,
+        correctAnswer: q.type === 'short_answer' ? q.correctAnswer : '',
+      });
+    }
+  };
+
+  const updateQuestionGroupOption = (
+    index: number,
+    group: 'group1' | 'group2',
+    optionIndex: number,
+    value: string
+  ) => {
+    const q = questions[index];
+    const current = q[group] ?? emptyQuestionGroup();
+    const opts = [...(current.options ?? emptyQuestionOptions())];
+    opts[optionIndex] = value;
+    updateQuestion(index, { [group]: { ...current, options: opts } });
+  };
+
+  const updateQuestionOption = (index: number, optionIndex: number, value: string) => {
+    const opts = [...(questions[index].options ?? emptyQuestionOptions())];
+    opts[optionIndex] = value;
+    updateQuestion(index, { options: opts });
   };
 
   const removeQuestion = (index: number) => {
@@ -193,6 +322,10 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
       setCurrentStep(1);
       return;
     }
+    if (!validateStep(3)) {
+      setCurrentStep(3);
+      return;
+    }
 
     // Валидация на скалата и преобразуване към number
     const grade2Num = typeof gradeScale.grade2 === 'string' ? parseFloat(gradeScale.grade2) || 0 : gradeScale.grade2;
@@ -216,6 +349,8 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
           grade5: grade5Num,
           grade6: grade6Num,
         },
+        hasGroups,
+        mode: 'offline',
         questions: questions,
       });
 
@@ -225,6 +360,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
       setTestType('Нормален тест');
       setTestDate(getCurrentDate());
       setMaxPoints('');
+      setHasGroups(false);
       setGradeScale({
         grade2: '',
         grade3: '',
@@ -234,6 +370,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
       });
       setQuestions([]);
       setQuestionCount('');
+      setQuestionGroupTabs({});
       setCurrentStep(1);
       
       // Call onSuccess callback if provided - САМО след успешно създаване
@@ -344,6 +481,39 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
               required
               placeholder="Въведете точки"
             />
+          </div>
+
+          <div className="mt-6">
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 mb-3">
+                Групи в теста
+              </legend>
+              <div className="flex flex-wrap gap-6">
+                <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input
+                    type="radio"
+                    name="test-groups"
+                    checked={!hasGroups}
+                    onChange={() => handleHasGroupsChange(false)}
+                    className="text-blue-600"
+                  />
+                  <span className="font-medium">Една група</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input
+                    type="radio"
+                    name="test-groups"
+                    checked={hasGroups}
+                    onChange={() => handleHasGroupsChange(true)}
+                    className="text-blue-600"
+                  />
+                  <span className="font-medium">Две групи</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                При „Две групи" всеки въпрос в стъпка 3 има отделни полета за I и II група.
+              </p>
+            </fieldset>
           </div>
         </div>
       )}
@@ -525,7 +695,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
         <div className="step-content">
           <div className="step-header">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Въпроси в теста</h3>
-            <p className="text-sm text-gray-600">Задайте въпросите и техните точки (опционално)</p>
+            <p className="text-sm text-gray-600">Задайте въпросите, типа, вариантите и верния отговор</p>
           </div>
 
           {maxPointsNum > 0 ? (
@@ -582,8 +752,15 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
                 {/* Grid с въпроси */}
                 {questions.length > 0 && (
                   <div className="questions-grid-container">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {questions.map((question, index) => (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {questions.map((question, index) => {
+                        const opts = question.options ?? emptyQuestionOptions();
+                        const isMultipleChoice = question.type === 'multiple_choice';
+                        const activeGroup = getQuestionGroupTab(question.id);
+                        const activeGroupData = question[activeGroup] ?? emptyQuestionGroup();
+                        const activeGroupOpts = activeGroupData.options ?? emptyQuestionOptions();
+
+                        return (
                         <div key={question.id} className="question-card bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-all">
                           <div className="flex items-center justify-between mb-3">
                             <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded">
@@ -597,39 +774,222 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
                               ✕
                             </Button>
                           </div>
-                          <div className="flex gap-3 items-end">
-                            <div className="flex-1">
-                              <label className="block text-xs font-medium text-gray-600 mb-1">
-                                Текст на въпроса
-                              </label>
-                              <Input
-                                type="text"
-                                value={question.text}
-                                onChange={(e) => updateQuestionText(index, e.target.value)}
-                                placeholder={`Въпрос ${index + 1}`}
-                                className="mb-0 text-sm"
-                              />
-                            </div>
-                            <div className="w-24">
-                              <label className="block text-xs font-medium text-gray-600 mb-1">
-                                Точки
-                              </label>
-                              <Input
-                                type="text"
-                                value={String(question.points || '')}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  const points = value === '' ? 0 : parseFloat(value) || 0;
-                                  updateQuestionPoints(index, points);
-                                }}
-                                onFocus={(e) => e.target.select()}
-                                placeholder="0"
-                                className="mb-0 text-sm"
-                              />
-                            </div>
+
+                          <div className="space-y-3">
+                            <Select
+                              label="Тип въпрос"
+                              value={question.type}
+                              onChange={(e) => updateQuestionType(index, e.target.value as QuestionType)}
+                              options={questionTypeOptions}
+                              required
+                              className="mb-0"
+                            />
+
+                            {hasGroups ? (
+                              <>
+                                <div className="flex justify-end">
+                                  <div className="w-24">
+                                    <Input
+                                      label="Точки"
+                                      type="text"
+                                      value={String(question.points || '')}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        const points = value === '' ? 0 : parseFloat(value) || 0;
+                                        updateQuestion(index, { points });
+                                      }}
+                                      onFocus={(e) => e.target.select()}
+                                      placeholder="0"
+                                      className="mb-0 text-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="nav-tabs w-full">
+                                  <button
+                                    type="button"
+                                    className={`nav-tab flex-1 ${activeGroup === 'group1' ? 'active' : ''}`}
+                                    onClick={() => setQuestionGroupTab(question.id, 'group1')}
+                                  >
+                                    I група
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`nav-tab flex-1 ${activeGroup === 'group2' ? 'active' : ''}`}
+                                    onClick={() => setQuestionGroupTab(question.id, 'group2')}
+                                  >
+                                    II група
+                                  </button>
+                                </div>
+
+                                <Input
+                                  label="Текст на въпроса"
+                                  type="text"
+                                  value={activeGroupData.text}
+                                  onChange={(e) =>
+                                    updateQuestionGroup(index, activeGroup, 'text', e.target.value)
+                                  }
+                                  placeholder={`Въпрос ${index + 1} — ${activeGroup === 'group1' ? 'I' : 'II'} група`}
+                                  required
+                                  className="mb-0 text-sm"
+                                />
+
+                                {isMultipleChoice && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {OPTION_LABELS.map((label, optIdx) => (
+                                      <Input
+                                        key={`${activeGroup}-${label}`}
+                                        label={`Вариант ${label}`}
+                                        type="text"
+                                        value={activeGroupOpts[optIdx] ?? ''}
+                                        onChange={(e) =>
+                                          updateQuestionGroupOption(index, activeGroup, optIdx, e.target.value)
+                                        }
+                                        placeholder={`Отговор ${label}`}
+                                        required
+                                        className="mb-0 text-sm"
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                                    Верен отговор <span className="text-red-600">*</span>
+                                  </label>
+                                  {isMultipleChoice ? (
+                                    <div className="flex flex-wrap gap-3">
+                                      {OPTION_LABELS.map((label, optIdx) => (
+                                        <label
+                                          key={`${activeGroup}-correct-${label}`}
+                                          className="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer"
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`correct-${question.id}-${activeGroup}`}
+                                            value={label}
+                                            checked={activeGroupData.correctAnswer === label}
+                                            onChange={() =>
+                                              updateQuestionGroup(index, activeGroup, 'correctAnswer', label)
+                                            }
+                                            className="text-blue-600"
+                                          />
+                                          <span className="font-medium">{label}</span>
+                                          {activeGroupOpts[optIdx]?.trim() && (
+                                            <span className="text-gray-500 truncate max-w-[120px]">
+                                              — {activeGroupOpts[optIdx]}
+                                            </span>
+                                          )}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type="text"
+                                      value={activeGroupData.correctAnswer}
+                                      onChange={(e) =>
+                                        updateQuestionGroup(index, activeGroup, 'correctAnswer', e.target.value)
+                                      }
+                                      placeholder="Очакван верен отговор"
+                                      required
+                                      className="mb-0 text-sm"
+                                    />
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex gap-3 items-end">
+                                  <div className="flex-1">
+                                    <Input
+                                      label="Текст на въпроса"
+                                      type="text"
+                                      value={question.text}
+                                      onChange={(e) => updateQuestion(index, { text: e.target.value })}
+                                      placeholder={`Въпрос ${index + 1}`}
+                                      required
+                                      className="mb-0 text-sm"
+                                    />
+                                  </div>
+                                  <div className="w-24">
+                                    <Input
+                                      label="Точки"
+                                      type="text"
+                                      value={String(question.points || '')}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        const points = value === '' ? 0 : parseFloat(value) || 0;
+                                        updateQuestion(index, { points });
+                                      }}
+                                      onFocus={(e) => e.target.select()}
+                                      placeholder="0"
+                                      className="mb-0 text-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                {isMultipleChoice && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {OPTION_LABELS.map((label, optIdx) => (
+                                      <Input
+                                        key={label}
+                                        label={`Вариант ${label}`}
+                                        type="text"
+                                        value={opts[optIdx] ?? ''}
+                                        onChange={(e) => updateQuestionOption(index, optIdx, e.target.value)}
+                                        placeholder={`Отговор ${label}`}
+                                        required
+                                        className="mb-0 text-sm"
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                                    Верен отговор <span className="text-red-600">*</span>
+                                  </label>
+                                  {isMultipleChoice ? (
+                                    <div className="flex flex-wrap gap-3">
+                                      {OPTION_LABELS.map((label, optIdx) => (
+                                        <label
+                                          key={label}
+                                          className="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer"
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`correct-${question.id}`}
+                                            value={label}
+                                            checked={question.correctAnswer === label}
+                                            onChange={() => updateQuestion(index, { correctAnswer: label })}
+                                            className="text-blue-600"
+                                          />
+                                          <span className="font-medium">{label}</span>
+                                          {opts[optIdx]?.trim() && (
+                                            <span className="text-gray-500 truncate max-w-[120px]">
+                                              — {opts[optIdx]}
+                                            </span>
+                                          )}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type="text"
+                                      value={question.correctAnswer ?? ''}
+                                      onChange={(e) => updateQuestion(index, { correctAnswer: e.target.value })}
+                                      placeholder="Очакван верен отговор"
+                                      required
+                                      className="mb-0 text-sm"
+                                    />
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -658,7 +1018,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
 
                 {questions.length === 0 && (
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 text-center">
-                    <p className="text-blue-800">Няма добавени въпроси. Въпросите са опционални.</p>
+                    <p className="text-blue-800">Няма добавени въпроси. Можете да продължите без въпроси или да добавите такива.</p>
                   </div>
                 )}
               </div>
@@ -704,6 +1064,10 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
                 <div className="meta-item">
                   <span className="meta-label text-white/80">Въпроси</span>
                   <span className="meta-value text-white">{questions.length}</span>
+                </div>
+                <div className="meta-item">
+                  <span className="meta-label text-white/80">Групи</span>
+                  <span className="meta-value text-white">{hasGroups ? 'Две групи' : 'Една група'}</span>
                 </div>
               </div>
             </div>
@@ -819,10 +1183,42 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
                             <span className="percentage-value">{question.points || 0}т</span>
                             <span className="percentage-label">{percentage.toFixed(1)}%</span>
                           </div>
-                          {question.text && (
-                            <div className="mt-2 text-xs text-gray-600 truncate" title={question.text}>
-                              {question.text}
-                            </div>
+                          {hasGroups ? (
+                            <>
+                              {question.group1?.text && (
+                                <div className="mt-2 text-xs text-gray-600 truncate" title={question.group1.text}>
+                                  I: {question.group1.text}
+                                </div>
+                              )}
+                              {question.group2?.text && (
+                                <div className="mt-1 text-xs text-gray-600 truncate" title={question.group2.text}>
+                                  II: {question.group2.text}
+                                </div>
+                              )}
+                              <div className="mt-1 text-xs text-gray-500">
+                                {question.type === 'multiple_choice' ? 'Избираем отговор' : 'Кратък отговор'}
+                                {question.group1?.correctAnswer && (
+                                  <span> · I: {question.group1.correctAnswer}</span>
+                                )}
+                                {question.group2?.correctAnswer && (
+                                  <span> · II: {question.group2.correctAnswer}</span>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {question.text && (
+                                <div className="mt-2 text-xs text-gray-600 truncate" title={question.text}>
+                                  {question.text}
+                                </div>
+                              )}
+                              <div className="mt-1 text-xs text-gray-500">
+                                {question.type === 'multiple_choice' ? 'Избираем отговор' : 'Кратък отговор'}
+                                {question.correctAnswer && (
+                                  <span> · Верен: {question.correctAnswer}</span>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       );

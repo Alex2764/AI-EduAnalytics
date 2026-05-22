@@ -101,12 +101,10 @@ export const QuestionResultsModal: React.FC<QuestionResultsModalProps> = ({
 
   const handleSave = () => {
     // Convert questionPoints to QuestionResult format
-    const questionResults: QuestionResult[] = test.questions
-      .map(question => ({
-        questionId: question.id,
-        points: questionPoints[question.id] || 0,
-      }))
-      .filter(qr => qr.points > 0); // Only include questions with points
+    const questionResults: QuestionResult[] = test.questions.map(question => ({
+      questionId: question.id,
+      points: questionPoints[question.id] ?? 0,
+    }));
 
     onSave(questionResults, totalPoints, calculatedGrade, calculatedPercentage);
     onClose();
