@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../common/Button';
 import { Table } from '../common/Table';
 import { EditGradeScaleModal } from './EditGradeScaleModal';
 import { AIAnalysisModal } from './AIAnalysisModal';
+import { TestLinkModal } from './TestLinkModal';
+import { SubmissionsReviewModal } from './SubmissionsReviewModal';
 import { useAppContext } from '../../context/AppContext';
+import { loadPendingSubmissionCounts } from '../../lib/submissionsApi';
 import { formatDate } from '../../utils/dateFormatter';
+import { logger } from '../../utils/logger';
 import type { Test } from '../../types';
 
 interface TestListProps {
@@ -18,6 +22,34 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   const [showEditScaleModal, setShowEditScaleModal] = useState(false);
   const [showAIAnalysisModal, setShowAIAnalysisModal] = useState(false);
   const [selectedTestForAI, setSelectedTestForAI] = useState<Test | null>(null);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [selectedTestForLink, setSelectedTestForLink] = useState<Test | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedTestForReview, setSelectedTestForReview] = useState<Test | null>(null);
+  const [pendingCounts, setPendingCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCounts = async () => {
+      try {
+        const counts = await loadPendingSubmissionCounts();
+        if (!cancelled) {
+          setPendingCounts(counts);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          logger.error('Error loading pending submission counts:', err);
+        }
+      }
+    };
+
+    loadCounts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tests]);
 
   const handleDeleteTest = async (testId: string) => {
     const test = tests.find(t => t.id === testId);
@@ -40,6 +72,25 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   const handleOpenAIAnalysis = (test: Test) => {
     setSelectedTestForAI(test);
     setShowAIAnalysisModal(true);
+  };
+
+  const handleOpenLink = (test: Test) => {
+    setSelectedTestForLink(test);
+    setShowLinkModal(true);
+  };
+
+  const handleOpenReview = (test: Test) => {
+    setSelectedTestForReview(test);
+    setShowReviewModal(true);
+  };
+
+  const refreshPendingCounts = async () => {
+    try {
+      const counts = await loadPendingSubmissionCounts();
+      setPendingCounts(counts);
+    } catch (err: unknown) {
+      logger.error('Error refreshing pending submission counts:', err);
+    }
   };
 
   const getTestStatistics = (test: Test) => {
@@ -85,11 +136,22 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   const renderRow = (test: Test, index: number) => {
     const stats = getTestStatistics(test);
     const hasResults = stats.resultsCount > 0;
+    const isOnline = test.mode === 'online';
+    const pendingCount = pendingCounts[test.id] ?? 0;
 
     return (
       <tr key={test.id} className="hover:bg-gray-50">
         <td className="px-6 py-4 text-sm text-gray-900">{index + 1}</td>
-        <td className="px-6 py-4 text-sm font-medium text-gray-900">{test.name}</td>
+        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>{test.name}</span>
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 text-xs font-semibold">
+                Чака преглед ({pendingCount})
+              </span>
+            )}
+          </div>
+        </td>
         <td className="px-6 py-4 text-sm text-gray-900">{test.class}</td>
         <td className="px-6 py-4 text-sm text-gray-900">{test.type}</td>
         <td className="px-6 py-4 text-sm text-gray-900">{formatDate(test.date)}</td>
@@ -110,6 +172,23 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
               >
                 Скала
               </Button>
+              {isOnline && pendingCount > 0 && (
+                <Button
+                  onClick={() => handleOpenReview(test)}
+                  className="text-xs py-2 px-3 btn-warning"
+                >
+                  Чака преглед ({pendingCount})
+                </Button>
+              )}
+              {isOnline && (
+                <Button
+                  onClick={() => handleOpenLink(test)}
+                  className="text-xs py-2 px-3"
+                  variant="secondary"
+                >
+                  Линк
+                </Button>
+              )}
               {hasResults ? (
                 <>
                   <Button
@@ -194,6 +273,26 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
         testId={selectedTestForAI?.id || ''}
         testName={selectedTestForAI?.name}
         className={selectedTestForAI?.class}
+      />
+
+      {/* Online test link modal */}
+      <TestLinkModal
+        isOpen={showLinkModal}
+        onClose={() => {
+          setShowLinkModal(false);
+          setSelectedTestForLink(null);
+        }}
+        test={selectedTestForLink}
+      />
+
+      <SubmissionsReviewModal
+        isOpen={showReviewModal}
+        onClose={() => {
+          setShowReviewModal(false);
+          setSelectedTestForReview(null);
+        }}
+        test={selectedTestForReview}
+        onFinalized={refreshPendingCounts}
       />
     </>
   );

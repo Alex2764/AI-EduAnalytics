@@ -8,7 +8,7 @@
  * npx supabase gen types typescript --project-id "your-project-id" > src/types/database.types.ts
  */
 
-import type { GradeScale, Question, QuestionResult } from '../types.ts'
+import type { GradeScale, Question, QuestionResult, SubmissionAnswer } from '../types.ts'
 
 export type Json =
   | string
@@ -98,6 +98,8 @@ export interface Database {
           max_points: number
           grade_scale: Json | null
           questions: Json | null
+          has_groups: boolean | null
+          mode: string | null
           subject: string | null
           teacher_name: string | null
           total_questions: number | null
@@ -116,6 +118,8 @@ export interface Database {
           max_points: number
           grade_scale?: Json | GradeScale | null
           questions?: Json | Question[] | null
+          has_groups?: boolean | null
+          mode?: string | null
           subject?: string | null
           teacher_name?: string | null
           total_questions?: number | null
@@ -134,6 +138,8 @@ export interface Database {
           max_points?: number
           grade_scale?: Json | GradeScale | null
           questions?: Json | Question[] | null
+          has_groups?: boolean | null
+          mode?: string | null
           subject?: string | null
           teacher_name?: string | null
           total_questions?: number | null
@@ -141,6 +147,30 @@ export interface Database {
           short_questions?: number | null
           created_at?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      test_tokens: {
+        Row: {
+          id: string
+          test_id: string
+          token: string
+          group_number: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          test_id: string
+          token: string
+          group_number: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          test_id?: string
+          token?: string
+          group_number?: number
+          created_at?: string
         }
         Relationships: []
       }
@@ -189,6 +219,39 @@ export interface Database {
           question_results?: Json | QuestionResult[] | null
           created_at?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      submissions: {
+        Row: {
+          id: string
+          test_id: string
+          student_name: string
+          group_number: number
+          answers: Json | SubmissionAnswer[]
+          auto_points: number
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          test_id: string
+          student_name: string
+          group_number: number
+          answers: Json | SubmissionAnswer[]
+          auto_points: number
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          test_id?: string
+          student_name?: string
+          group_number?: number
+          answers?: Json | SubmissionAnswer[]
+          auto_points?: number
+          status?: string
+          created_at?: string
         }
         Relationships: []
       }
@@ -257,4 +320,6 @@ export type StudentRow = Tables<'students'>
 export type TestRow = Tables<'tests'>
 export type ResultRow = Tables<'results'>
 export type TestAnalyticsRow = Tables<'test_analytics'>
+export type TestTokenRow = Tables<'test_tokens'>
+export type SubmissionRow = Tables<'submissions'>
 
