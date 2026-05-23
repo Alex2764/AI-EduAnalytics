@@ -11,6 +11,36 @@ import {
   validateQuestions,
 } from '../../utils/validateQuestions';
 import type { TestType, GradeScale, Question, QuestionType } from '../../types';
+import './TestForm.css';
+
+function CorrectAnswerPicker({
+  selected,
+  optionTexts,
+  onSelect,
+}: {
+  selected: string;
+  optionTexts?: string[];
+  onSelect: (label: string) => void;
+}) {
+  return (
+    <div className="test-form-answer-picker">
+      {OPTION_LABELS.map((label, optIdx) => (
+        <button
+          type="button"
+          key={label}
+          className={`test-form-answer-btn ${selected === label ? 'is-selected' : ''}`}
+          onClick={() => onSelect(label)}
+          title={optionTexts?.[optIdx]?.trim() || undefined}
+        >
+          <span className="test-form-answer-letter">{label}</span>
+          {optionTexts?.[optIdx]?.trim() ? (
+            <span className="test-form-answer-preview">{optionTexts[optIdx]}</span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const questionTypeOptions: { value: QuestionType; label: string }[] = [
   { value: 'short_answer', label: 'С кратък отговор' },
@@ -398,29 +428,30 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
     return maxPointsNum > 0 ? (grade / maxPointsNum) * 100 : 0;
   };
 
+  const pointsProgress =
+    maxPointsNum > 0 ? Math.min(100, (totalQuestionPoints / maxPointsNum) * 100) : 0;
+  const pointsMatch = questions.length > 0 && totalQuestionPoints === maxPointsNum;
+
   return (
-    <div>
-      {/* Използваме div вместо form, за да предотвратим автоматично submit */}
-      <form 
+    <div className="test-form">
+      <form
+        className="test-form-inner"
+        style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
         onSubmit={(e) => {
           e.preventDefault();
           return false;
         }}
         onKeyDown={(e) => {
-          // Предотвратяваме Enter да submit-ва формата автоматично
           if (e.key === 'Enter') {
             e.preventDefault();
-            // Ако сме на последната стъпка, не правим нищо (трябва да се натисне бутонът)
-            // Ако сме на друга стъпка, преминаваме напред
             if (currentStep < STEPS.length) {
               handleNext();
             }
           }
         }}
       >
-      {/* Stepper */}
-      <Stepper 
-        steps={STEPS} 
+      <Stepper
+        steps={STEPS}
         currentStep={currentStep}
         onStepClick={handleStepClick}
       />
@@ -431,110 +462,109 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
         </div>
       )}
 
-      {/* Step 1: Основна информация */}
+      <div className="test-form-body">
+
       {currentStep === 1 && (
         <div className="step-content">
           <div className="step-header">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Основна информация</h3>
-            <p className="text-sm text-gray-600">Попълнете основната информация за теста</p>
+            <h3>Основна информация</h3>
+            <p>Име, клас и тип — отляво; дата, точки и групи — отдясно.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-            <Input
-              label="Име на тест"
-              value={testName}
-              onChange={(e) => setTestName(e.target.value)}
-              placeholder="Въведете име на теста"
-              required
-            />
-            
-            <Select
-              label="Клас"
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              options={classOptions}
-              placeholder="Изберете клас"
-              required
-            />
-            
-            <Select
-              label="Тип тест"
-              value={testType}
-              onChange={(e) => setTestType(e.target.value as TestType)}
-              options={testTypeOptions}
-              required
-            />
-            
-            <Input
-              label="Дата"
-              type="date"
-              value={testDate}
-              onChange={(e) => setTestDate(e.target.value)}
-              required
-            />
-            
-            <Input
-              label="Максимални точки"
-              type="text"
-              value={maxPoints}
-              onChange={(e) => setMaxPoints(e.target.value)}
-              required
-              placeholder="Въведете точки"
-            />
-          </div>
+          <div className="test-form-panels">
+            <section className="test-form-panel">
+              <h4 className="test-form-panel-title">Данни за теста</h4>
+              <Input
+                label="Име на тест"
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                placeholder="Напр. Входно ниво — Информатика"
+                required
+              />
+              <Select
+                label="Клас"
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                options={classOptions}
+                placeholder="Изберете клас"
+                required
+              />
+              <Select
+                label="Тип тест"
+                value={testType}
+                onChange={(e) => setTestType(e.target.value as TestType)}
+                options={testTypeOptions}
+                required
+              />
+            </section>
 
-          <div className="mt-6">
-            <fieldset>
-              <legend className="block text-sm font-medium text-gray-700 mb-3">
-                Групи в теста
-              </legend>
-              <div className="flex flex-wrap gap-6">
-                <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-                  <input
-                    type="radio"
-                    name="test-groups"
-                    checked={!hasGroups}
-                    onChange={() => handleHasGroupsChange(false)}
-                    className="text-blue-600"
-                  />
-                  <span className="font-medium">Една група</span>
-                </label>
-                <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-                  <input
-                    type="radio"
-                    name="test-groups"
-                    checked={hasGroups}
-                    onChange={() => handleHasGroupsChange(true)}
-                    className="text-blue-600"
-                  />
-                  <span className="font-medium">Две групи</span>
-                </label>
+            <section className="test-form-panel">
+              <h4 className="test-form-panel-title">Параметри</h4>
+              <Input
+                label="Дата"
+                type="date"
+                value={testDate}
+                onChange={(e) => setTestDate(e.target.value)}
+                required
+              />
+              <Input
+                label="Максимални точки"
+                type="text"
+                value={maxPoints}
+                onChange={(e) => setMaxPoints(e.target.value)}
+                required
+                placeholder="Напр. 100"
+              />
+              <div>
+                <span className="test-form-field-label">Групи в теста</span>
+                <div className="test-form-groups">
+                  <label className="test-form-group-chip">
+                    <input
+                      type="radio"
+                      name="test-groups"
+                      checked={!hasGroups}
+                      onChange={() => handleHasGroupsChange(false)}
+                    />
+                    Една група
+                  </label>
+                  <label className="test-form-group-chip">
+                    <input
+                      type="radio"
+                      name="test-groups"
+                      checked={hasGroups}
+                      onChange={() => handleHasGroupsChange(true)}
+                    />
+                    Две групи
+                  </label>
+                </div>
+                <p className="test-form-hint">
+                  При две групи — отделен текст и отговори за I и II група на всеки въпрос.
+                </p>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                При „Две групи" всеки въпрос в стъпка 3 има отделни полета за I и II група.
-              </p>
-            </fieldset>
+            </section>
           </div>
         </div>
       )}
 
-      {/* Step 2: Скала за оценяване */}
       {currentStep === 2 && (
         <div className="step-content">
           <div className="step-header">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Скала за оценяване</h3>
-            <p className="text-sm text-gray-600">Задайте минимални точки за всяка оценка</p>
+            <h3>Скала за оценяване</h3>
+            <p>Минимални точки за всяка оценка — използвайте бутона за автоматично попълване.</p>
           </div>
 
           {maxPointsNum > 0 ? (
             <>
-              <div className="mt-6 flex justify-end mb-4">
+              <div className="test-form-scale-toolbar">
+                <span className="text-sm text-gray-600">
+                  Максимум: <strong>{maxPointsNum}</strong> т.
+                </span>
                 <Button
                   type="button"
                   onClick={calculateDefaultScale}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white btn-primary-scale"
                 >
-                  ✨ Изчисли стандартна скала (40%, 60%, 76%, 92%)
+                  Изчисли стандартна скала
                 </Button>
               </div>
 
@@ -578,106 +608,40 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-300">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Оценка 2 (от точки)
-                  </label>
-                  <Input
-                    type="text"
-                    value={String(gradeScale.grade2 || '')}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setGradeScale(prev => ({ ...prev, grade2: value }));
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="0"
-                    required
-                    className="mb-0"
-                  />
-                </div>
-                
-                <div className="bg-orange-50 p-4 rounded-lg border-2 border-orange-300">
-                  <label className="block text-sm font-medium text-orange-800 mb-2">
-                    Оценка 3 (от точки)
-                  </label>
-                  <Input
-                    type="text"
-                    value={String(gradeScale.grade3 || '')}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setGradeScale(prev => ({ ...prev, grade3: value }));
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="0"
-                    required
-                    className="mb-0"
-                  />
-                </div>
-                
-                <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-300">
-                  <label className="block text-sm font-medium text-yellow-800 mb-2">
-                    Оценка 4 (от точки)
-                  </label>
-                  <Input
-                    type="text"
-                    value={String(gradeScale.grade4 || '')}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setGradeScale(prev => ({ ...prev, grade4: value }));
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="0"
-                    required
-                    className="mb-0"
-                  />
-                </div>
-                
-                <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-300">
-                  <label className="block text-sm font-medium text-blue-800 mb-2">
-                    Оценка 5 (от точки)
-                  </label>
-                  <Input
-                    type="text"
-                    value={String(gradeScale.grade5 || '')}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setGradeScale(prev => ({ ...prev, grade5: value }));
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="0"
-                    required
-                    className="mb-0"
-                  />
-                </div>
-                
-                <div className="bg-green-50 p-4 rounded-lg border-2 border-green-300">
-                  <label className="block text-sm font-medium text-green-800 mb-2">
-                    Оценка 6 (от точки)
-                  </label>
-                  <Input
-                    type="text"
-                    value={String(gradeScale.grade6 || '')}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setGradeScale(prev => ({ ...prev, grade6: value }));
-                    }}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="0"
-                    required
-                    className="mb-0"
-                  />
-                </div>
+              <div className="test-form-grade-row">
+                {([
+                  { key: 'grade2' as const, num: 2, className: 'test-form-grade-cell--2' },
+                  { key: 'grade3' as const, num: 3, className: 'test-form-grade-cell--3' },
+                  { key: 'grade4' as const, num: 4, className: 'test-form-grade-cell--4' },
+                  { key: 'grade5' as const, num: 5, className: 'test-form-grade-cell--5' },
+                  { key: 'grade6' as const, num: 6, className: 'test-form-grade-cell--6' },
+                ]).map(({ key, num, className }) => (
+                  <div key={key} className={`test-form-grade-cell ${className}`}>
+                    <label htmlFor={`grade-${num}`}>Оценка {num}</label>
+                    <Input
+                      id={`grade-${num}`}
+                      type="text"
+                      value={String(gradeScale[key] || '')}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setGradeScale(prev => ({ ...prev, [key]: value }));
+                      }}
+                      onFocus={(e) => e.target.select()}
+                      placeholder="от т."
+                      required
+                      className="mb-0"
+                    />
+                  </div>
+                ))}
               </div>
 
-              <div className="mt-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong>Текуща скала:</strong> 2 = {grade2Num}-{grade3Num > 0 ? (grade3Num - 0.5).toFixed(1) : 0}т, 
-                  3 = {grade3Num}-{grade4Num > 0 ? (grade4Num - 0.5).toFixed(1) : 0}т, 
-                  4 = {grade4Num}-{grade5Num > 0 ? (grade5Num - 0.5).toFixed(1) : 0}т, 
-                  5 = {grade5Num}-{grade6Num > 0 ? (grade6Num - 0.5).toFixed(1) : 0}т, 
-                  6 = {grade6Num}+т
-                </p>
+              <div className="test-form-scale-summary">
+                <strong>Обобщение:</strong>{' '}
+                2 → {grade2Num}–{grade3Num > 0 ? (grade3Num - 0.5).toFixed(1) : 0} т. ·{' '}
+                3 → {grade3Num}–{grade4Num > 0 ? (grade4Num - 0.5).toFixed(1) : 0} т. ·{' '}
+                4 → {grade4Num}–{grade5Num > 0 ? (grade5Num - 0.5).toFixed(1) : 0} т. ·{' '}
+                5 → {grade5Num}–{grade6Num > 0 ? (grade6Num - 0.5).toFixed(1) : 0} т. ·{' '}
+                6 → {grade6Num}+ т.
               </div>
             </>
           ) : (
@@ -690,355 +654,294 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
         </div>
       )}
 
-      {/* Step 3: Въпроси */}
       {currentStep === 3 && (
         <div className="step-content">
           <div className="step-header">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Въпроси в теста</h3>
-            <p className="text-sm text-gray-600">Задайте въпросите, типа, вариантите и верния отговор</p>
+            <h3>Въпроси в теста</h3>
+            <p>Един ред = един въпрос. Варианти A–D на един ред; верен отговор с един клик.</p>
           </div>
 
           {maxPointsNum > 0 ? (
             <>
-              <div className="mt-6 space-y-4">
-                {/* Бързо добавяне */}
-                <div className="bg-gray-50 p-4 rounded-lg border">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Брой въпроси за добавяне
-                      </label>
-                      <Input
-                        type="text"
-                        value={questionCount}
-                        onChange={(e) => setQuestionCount(e.target.value)}
-                        placeholder="Въведете брой"
-                        className="mb-0"
+              <div className="test-form-questions-toolbar">
+                {questions.length > 0 && (
+                  <div
+                    className={`test-form-points-bar ${pointsMatch ? 'is-ok' : 'is-warn'}`}
+                  >
+                    <span>
+                      <strong>{totalQuestionPoints.toFixed(1)}</strong> / {maxPointsNum} т.
+                      {pointsMatch ? ' · OK' : totalQuestionPoints < maxPointsNum
+                        ? ` · остават ${(maxPointsNum - totalQuestionPoints).toFixed(1)}`
+                        : ` · с ${(totalQuestionPoints - maxPointsNum).toFixed(1)} над`}
+                    </span>
+                    <div className="test-form-points-progress">
+                      <div
+                        className="test-form-points-progress-fill"
+                        style={{ width: `${pointsProgress}%` }}
                       />
                     </div>
-                    <div className="flex items-end gap-2">
-                      <Button
-                        type="button"
-                        onClick={addQuestion}
-                        disabled={!questionCount || parseInt(questionCount) <= 0}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        Добави {questionCount || ''} въпроса
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={addSingleQuestion}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        + Добави един
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Автоматично разпределение */}
-                {questions.length > 0 && (
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      onClick={distributePointsEvenly}
-                      className="bg-purple-600 hover:bg-purple-700 text-white text-sm"
-                    >
-                      ⚡ Равномерно разпредели точките
-                    </Button>
                   </div>
                 )}
 
-                {/* Grid с въпроси */}
-                {questions.length > 0 && (
-                  <div className="questions-grid-container">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {questions.map((question, index) => {
-                        const opts = question.options ?? emptyQuestionOptions();
-                        const isMultipleChoice = question.type === 'multiple_choice';
-                        const activeGroup = getQuestionGroupTab(question.id);
-                        const activeGroupData = question[activeGroup] ?? emptyQuestionGroup();
-                        const activeGroupOpts = activeGroupData.options ?? emptyQuestionOptions();
+                <div className="test-form-add-row">
+                  <Input
+                    label="Брой"
+                    type="text"
+                    value={questionCount}
+                    onChange={(e) => setQuestionCount(e.target.value)}
+                    placeholder="5"
+                    className="mb-0"
+                  />
+                  <div className="test-form-add-actions">
+                    <Button
+                      type="button"
+                      onClick={addQuestion}
+                      disabled={!questionCount || parseInt(questionCount) <= 0}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      + {questionCount || '…'} въпроса
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={addSingleQuestion}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      + 1 въпрос
+                    </Button>
+                    {questions.length > 0 && (
+                      <Button
+                        type="button"
+                        onClick={distributePointsEvenly}
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        Разпредели точките
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                        return (
-                        <div key={question.id} className="question-card bg-white p-4 rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-all">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded">
-                              Въпрос {index + 1}
-                            </span>
-                            <Button
+              {questions.length > 0 ? (
+                <div className="test-form-questions-list">
+                  {questions.map((question, index) => {
+                    const opts = question.options ?? emptyQuestionOptions();
+                    const isMultipleChoice = question.type === 'multiple_choice';
+                    const activeGroup = getQuestionGroupTab(question.id);
+                    const activeGroupData = question[activeGroup] ?? emptyQuestionGroup();
+                    const activeGroupOpts = activeGroupData.options ?? emptyQuestionOptions();
+
+                    return (
+                      <article key={question.id} className="test-form-question-card">
+                        <div className="test-form-question-head">
+                          <span className="test-form-question-num">{index + 1}</span>
+                          <Select
+                            label="Тип"
+                            value={question.type}
+                            onChange={(e) =>
+                              updateQuestionType(index, e.target.value as QuestionType)
+                            }
+                            options={questionTypeOptions}
+                            required
+                            className="test-form-question-type mb-0"
+                          />
+                          <Input
+                            label="Точки"
+                            type="text"
+                            value={String(question.points || '')}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              const points = value === '' ? 0 : parseFloat(value) || 0;
+                              updateQuestion(index, { points });
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="0"
+                            className="test-form-question-points mb-0"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => removeQuestion(index)}
+                            className="test-form-question-remove bg-red-500 hover:bg-red-600 text-white"
+                          >
+                            Изтрий
+                          </Button>
+                        </div>
+
+                        {hasGroups && (
+                          <div className="test-form-group-tabs">
+                            <button
                               type="button"
-                              onClick={() => removeQuestion(index)}
-                              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 text-xs"
+                              className={`test-form-group-tab ${activeGroup === 'group1' ? 'active' : ''}`}
+                              onClick={() => setQuestionGroupTab(question.id, 'group1')}
                             >
-                              ✕
-                            </Button>
+                              I група
+                            </button>
+                            <button
+                              type="button"
+                              className={`test-form-group-tab ${activeGroup === 'group2' ? 'active' : ''}`}
+                              onClick={() => setQuestionGroupTab(question.id, 'group2')}
+                            >
+                              II група
+                            </button>
                           </div>
+                        )}
 
-                          <div className="space-y-3">
-                            <Select
-                              label="Тип въпрос"
-                              value={question.type}
-                              onChange={(e) => updateQuestionType(index, e.target.value as QuestionType)}
-                              options={questionTypeOptions}
-                              required
-                              className="mb-0"
-                            />
-
-                            {hasGroups ? (
-                              <>
-                                <div className="flex justify-end">
-                                  <div className="w-24">
-                                    <Input
-                                      label="Точки"
-                                      type="text"
-                                      value={String(question.points || '')}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        const points = value === '' ? 0 : parseFloat(value) || 0;
-                                        updateQuestion(index, { points });
-                                      }}
-                                      onFocus={(e) => e.target.select()}
-                                      placeholder="0"
-                                      className="mb-0 text-sm"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="nav-tabs w-full">
-                                  <button
-                                    type="button"
-                                    className={`nav-tab flex-1 ${activeGroup === 'group1' ? 'active' : ''}`}
-                                    onClick={() => setQuestionGroupTab(question.id, 'group1')}
-                                  >
-                                    I група
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={`nav-tab flex-1 ${activeGroup === 'group2' ? 'active' : ''}`}
-                                    onClick={() => setQuestionGroupTab(question.id, 'group2')}
-                                  >
-                                    II група
-                                  </button>
-                                </div>
-
-                                <Input
-                                  label="Текст на въпроса"
-                                  type="text"
-                                  value={activeGroupData.text}
-                                  onChange={(e) =>
-                                    updateQuestionGroup(index, activeGroup, 'text', e.target.value)
-                                  }
-                                  placeholder={`Въпрос ${index + 1} — ${activeGroup === 'group1' ? 'I' : 'II'} група`}
-                                  required
-                                  className="mb-0 text-sm"
-                                />
-
-                                {isMultipleChoice && (
-                                  <div className="grid grid-cols-2 gap-2">
+                        <div className="test-form-question-body">
+                          {hasGroups ? (
+                            <>
+                              <Input
+                                label="Текст на въпроса"
+                                type="text"
+                                value={activeGroupData.text}
+                                onChange={(e) =>
+                                  updateQuestionGroup(index, activeGroup, 'text', e.target.value)
+                                }
+                                placeholder={`Въпрос ${index + 1} — ${activeGroup === 'group1' ? 'I' : 'II'} група`}
+                                required
+                                className="mb-0"
+                              />
+                              {isMultipleChoice && (
+                                <div>
+                                  <span className="test-form-field-label">Варианти</span>
+                                  <div className="test-form-options-grid">
                                     {OPTION_LABELS.map((label, optIdx) => (
                                       <Input
                                         key={`${activeGroup}-${label}`}
-                                        label={`Вариант ${label}`}
+                                        label={label}
                                         type="text"
                                         value={activeGroupOpts[optIdx] ?? ''}
                                         onChange={(e) =>
-                                          updateQuestionGroupOption(index, activeGroup, optIdx, e.target.value)
+                                          updateQuestionGroupOption(
+                                            index,
+                                            activeGroup,
+                                            optIdx,
+                                            e.target.value
+                                          )
                                         }
                                         placeholder={`Отговор ${label}`}
                                         required
-                                        className="mb-0 text-sm"
+                                        className="mb-0"
                                       />
                                     ))}
                                   </div>
+                                </div>
+                              )}
+                              <div>
+                                <span className="test-form-field-label">
+                                  Верен отговор <span className="text-red-600">*</span>
+                                </span>
+                                {isMultipleChoice ? (
+                                  <CorrectAnswerPicker
+                                    selected={activeGroupData.correctAnswer}
+                                    optionTexts={activeGroupOpts}
+                                    onSelect={(label) =>
+                                      updateQuestionGroup(index, activeGroup, 'correctAnswer', label)
+                                    }
+                                  />
+                                ) : (
+                                  <Input
+                                    type="text"
+                                    value={activeGroupData.correctAnswer}
+                                    onChange={(e) =>
+                                      updateQuestionGroup(
+                                        index,
+                                        activeGroup,
+                                        'correctAnswer',
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Очакван верен отговор"
+                                    required
+                                    className="mb-0"
+                                  />
                                 )}
-
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Input
+                                label="Текст на въпроса"
+                                type="text"
+                                value={question.text}
+                                onChange={(e) => updateQuestion(index, { text: e.target.value })}
+                                placeholder={`Въпрос ${index + 1}`}
+                                required
+                                className="mb-0"
+                              />
+                              {isMultipleChoice && (
                                 <div>
-                                  <label className="block text-xs font-medium text-gray-600 mb-2">
-                                    Верен отговор <span className="text-red-600">*</span>
-                                  </label>
-                                  {isMultipleChoice ? (
-                                    <div className="flex flex-wrap gap-3">
-                                      {OPTION_LABELS.map((label, optIdx) => (
-                                        <label
-                                          key={`${activeGroup}-correct-${label}`}
-                                          className="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer"
-                                        >
-                                          <input
-                                            type="radio"
-                                            name={`correct-${question.id}-${activeGroup}`}
-                                            value={label}
-                                            checked={activeGroupData.correctAnswer === label}
-                                            onChange={() =>
-                                              updateQuestionGroup(index, activeGroup, 'correctAnswer', label)
-                                            }
-                                            className="text-blue-600"
-                                          />
-                                          <span className="font-medium">{label}</span>
-                                          {activeGroupOpts[optIdx]?.trim() && (
-                                            <span className="text-gray-500 truncate max-w-[120px]">
-                                              — {activeGroupOpts[optIdx]}
-                                            </span>
-                                          )}
-                                        </label>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <Input
-                                      type="text"
-                                      value={activeGroupData.correctAnswer}
-                                      onChange={(e) =>
-                                        updateQuestionGroup(index, activeGroup, 'correctAnswer', e.target.value)
-                                      }
-                                      placeholder="Очакван верен отговор"
-                                      required
-                                      className="mb-0 text-sm"
-                                    />
-                                  )}
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex gap-3 items-end">
-                                  <div className="flex-1">
-                                    <Input
-                                      label="Текст на въпроса"
-                                      type="text"
-                                      value={question.text}
-                                      onChange={(e) => updateQuestion(index, { text: e.target.value })}
-                                      placeholder={`Въпрос ${index + 1}`}
-                                      required
-                                      className="mb-0 text-sm"
-                                    />
-                                  </div>
-                                  <div className="w-24">
-                                    <Input
-                                      label="Точки"
-                                      type="text"
-                                      value={String(question.points || '')}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        const points = value === '' ? 0 : parseFloat(value) || 0;
-                                        updateQuestion(index, { points });
-                                      }}
-                                      onFocus={(e) => e.target.select()}
-                                      placeholder="0"
-                                      className="mb-0 text-sm"
-                                    />
-                                  </div>
-                                </div>
-
-                                {isMultipleChoice && (
-                                  <div className="grid grid-cols-2 gap-2">
+                                  <span className="test-form-field-label">Варианти</span>
+                                  <div className="test-form-options-grid">
                                     {OPTION_LABELS.map((label, optIdx) => (
                                       <Input
                                         key={label}
-                                        label={`Вариант ${label}`}
+                                        label={label}
                                         type="text"
                                         value={opts[optIdx] ?? ''}
-                                        onChange={(e) => updateQuestionOption(index, optIdx, e.target.value)}
+                                        onChange={(e) =>
+                                          updateQuestionOption(index, optIdx, e.target.value)
+                                        }
                                         placeholder={`Отговор ${label}`}
                                         required
-                                        className="mb-0 text-sm"
+                                        className="mb-0"
                                       />
                                     ))}
                                   </div>
-                                )}
-
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-600 mb-2">
-                                    Верен отговор <span className="text-red-600">*</span>
-                                  </label>
-                                  {isMultipleChoice ? (
-                                    <div className="flex flex-wrap gap-3">
-                                      {OPTION_LABELS.map((label, optIdx) => (
-                                        <label
-                                          key={label}
-                                          className="inline-flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer"
-                                        >
-                                          <input
-                                            type="radio"
-                                            name={`correct-${question.id}`}
-                                            value={label}
-                                            checked={question.correctAnswer === label}
-                                            onChange={() => updateQuestion(index, { correctAnswer: label })}
-                                            className="text-blue-600"
-                                          />
-                                          <span className="font-medium">{label}</span>
-                                          {opts[optIdx]?.trim() && (
-                                            <span className="text-gray-500 truncate max-w-[120px]">
-                                              — {opts[optIdx]}
-                                            </span>
-                                          )}
-                                        </label>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <Input
-                                      type="text"
-                                      value={question.correctAnswer ?? ''}
-                                      onChange={(e) => updateQuestion(index, { correctAnswer: e.target.value })}
-                                      placeholder="Очакван верен отговор"
-                                      required
-                                      className="mb-0 text-sm"
-                                    />
-                                  )}
                                 </div>
-                              </>
-                            )}
-                          </div>
+                              )}
+                              <div>
+                                <span className="test-form-field-label">
+                                  Верен отговор <span className="text-red-600">*</span>
+                                </span>
+                                {isMultipleChoice ? (
+                                  <CorrectAnswerPicker
+                                    selected={question.correctAnswer ?? ''}
+                                    optionTexts={opts}
+                                    onSelect={(label) =>
+                                      updateQuestion(index, { correctAnswer: label })
+                                    }
+                                  />
+                                ) : (
+                                  <Input
+                                    type="text"
+                                    value={question.correctAnswer ?? ''}
+                                    onChange={(e) =>
+                                      updateQuestion(index, { correctAnswer: e.target.value })
+                                    }
+                                    placeholder="Очакван верен отговор"
+                                    required
+                                    className="mb-0"
+                                  />
+                                )}
+                              </div>
+                            </>
+                          )}
                         </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Индикатор за общи точки */}
-                {questions.length > 0 && (
-                  <div className={`p-4 rounded-lg border-2 ${totalQuestionPoints === maxPointsNum ? 'bg-green-50 border-green-300' : 'bg-yellow-50 border-yellow-300'}`}>
-                    <div className="flex items-center justify-between">
-                      <p className={`text-sm font-medium ${totalQuestionPoints === maxPointsNum ? 'text-green-800' : 'text-yellow-800'}`}>
-                        <strong>Общо точки:</strong> {totalQuestionPoints.toFixed(2)} / {maxPointsNum}
-                      </p>
-                      {totalQuestionPoints !== maxPointsNum && (
-                        <span className="text-sm text-yellow-800">
-                          {totalQuestionPoints < maxPointsNum 
-                            ? `Остават ${(maxPointsNum - totalQuestionPoints).toFixed(2)} точки`
-                            : `Надхвърлят с ${(totalQuestionPoints - maxPointsNum).toFixed(2)} точки`
-                          }
-                        </span>
-                      )}
-                    </div>
-                    {totalQuestionPoints === maxPointsNum && (
-                      <p className="text-xs text-green-700 mt-1">✓ Точките съвпадат!</p>
-                    )}
-                  </div>
-                )}
-
-                {questions.length === 0 && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 text-center">
-                    <p className="text-blue-800">Няма добавени въпроси. Можете да продължите без въпроси или да добавите такива.</p>
-                  </div>
-                )}
-              </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="test-form-empty-hint">
+                  Няма въпроси — въведете брой и натиснете „+ N въпроса“, или „+ 1 въпрос“.
+                  Можете и да преминете напред без въпроси.
+                </p>
+              )}
             </>
           ) : (
-            <div className="mt-6 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <p className="text-yellow-800">
-                Моля, първо въведете максимални точки в стъпка 1.
+            <div className="mt-2 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <p className="text-yellow-800 m-0">
+                Първо въведете максимални точки в стъпка 1.
               </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Step 4: Обобщение */}
       {currentStep === 4 && (
         <div className="step-content">
           <div className="step-header">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Обобщение на теста</h3>
-            <p className="text-sm text-gray-600">Прегледайте всички данни преди създаване на теста</p>
+            <h3>Обобщение на теста</h3>
+            <p>Прегледайте данните преди запис.</p>
           </div>
 
           <div className="mt-6 space-y-6">
@@ -1238,9 +1141,10 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
         </div>
       )}
 
-      {/* Navigation Buttons */}
-      <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-200">
-        <div>
+      </div>
+
+      <div className="test-form-nav">
+        <div className="test-form-nav-actions">
           {currentStep > 1 && (
             <Button
               type="button"
@@ -1251,7 +1155,10 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
             </Button>
           )}
         </div>
-        <div className="flex gap-3">
+        <span className="test-form-step-indicator">
+          Стъпка {currentStep} от {STEPS.length}
+        </span>
+        <div className="test-form-nav-actions">
           {currentStep < STEPS.length ? (
             <Button
               type="button"
@@ -1261,13 +1168,13 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
               Напред →
             </Button>
           ) : (
-            <Button 
+            <Button
               type="button"
               onClick={handleSubmit}
               disabled={loading}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {loading ? 'Запазване...' : '✓ Създай тест'}
+              {loading ? 'Запазване...' : 'Създай тест'}
             </Button>
           )}
         </div>

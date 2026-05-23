@@ -34,7 +34,11 @@ MAX_MODEL_FALLBACK_ATTEMPTS = 4
 GEMINI_EDIT_MAX_OUTPUT_TOKENS = 800
 GEMINI_EDIT_PROMPT_PREFIX = (
     "Редактирай следния анализ на български за качество и стил. "
-    "Запази всички секции и съдържанието непроменено. "
+    "Запази всички секции и структурата. "
+    "Запази задължително заглавията LOWEST_RESULTS:, HIGHEST_RESULTS:, GAPS_ANALYSIS:, "
+    "RESULTS_ANALYSIS:, IMPROVEMENT_MEASURES: непроменени. "
+    "НЕ използвай имена на отделни ученици — ако има такива, замени ги с общи формулировки "
+    "(напр. „учениците“, „част от класа“, „ученици с по-ниски резултати“). "
     "Върни само редактирания текст:\n\n"
 )
 
@@ -249,6 +253,90 @@ class GeminiService:
             max_output_tokens=GEMINI_EDIT_MAX_OUTPUT_TOKENS,
         )
 
+    @staticmethod
+    def _build_anonymous_performance_summary(
+        students: Optional[List[Dict[str, Any]]],
+        results: Optional[List[Dict[str, Any]]],
+        test_max_points: float,
+    ) -> str:
+        """
+        Build aggregate result lines for the prompt — no student names.
+        """
+        if not students or not results:
+            return ""
+
+        try:
+            if not isinstance(students, list) or not isinstance(results, list):
+                return ""
+
+            scores: List[Dict[str, Any]] = []
+            for student in students:
+                if not isinstance(student, dict):
+                    continue
+                student_id = student.get("id") or student.get("student_id")
+                student_result = None
+                for result in results:
+                    if not isinstance(result, dict):
+                        continue
+                    result_student_id = result.get("student_id") or result.get("student")
+                    if result_student_id == student_id or result.get("student") == student_id:
+                        student_result = result
+                        break
+                if not student_result or not student_result.get("participated", True):
+                    continue
+                points = float(
+                    student_result.get("points") or student_result.get("total_points") or 0
+                )
+                grade = student_result.get("grade", 0)
+                percentage = student_result.get("percentage")
+                if percentage is None and test_max_points > 0:
+                    percentage = round((points / test_max_points) * 100, 1)
+                gender = student.get("gender", "")
+                if gender in ("male", "М", "м"):
+                    gender_label = "момчета"
+                elif gender in ("female", "Ж", "ж"):
+                    gender_label = "момичета"
+                else:
+                    gender_label = ""
+                scores.append({
+                    "points": points,
+                    "grade": grade,
+                    "percentage": percentage,
+                    "gender_label": gender_label,
+                })
+
+            if not scores:
+                return ""
+
+            scores.sort(key=lambda x: x["points"], reverse=True)
+            lines = ["\n\nОБОБЩЕНИ РЕЗУЛТАТИ (без имена на ученици):"]
+            lines.append(
+                f"- Най-висок резултат: {scores[0]['points']}т., оценка {scores[0]['grade']}"
+            )
+            lines.append(
+                f"- Най-нисък резултат: {scores[-1]['points']}т., оценка {scores[-1]['grade']}"
+            )
+
+            top_n = min(3, len(scores))
+            bottom_n = min(3, len(scores))
+            top_pts = ", ".join(f"{s['points']}т." for s in scores[:top_n])
+            bottom_pts = ", ".join(f"{s['points']}т." for s in scores[-bottom_n:])
+            lines.append(f"- Три най-високи резултата: {top_pts}")
+            if len(scores) > 3:
+                lines.append(f"- Три най-ниски резултата: {bottom_pts}")
+
+            boys = [s["points"] for s in scores if s["gender_label"] == "момчета"]
+            girls = [s["points"] for s in scores if s["gender_label"] == "момичета"]
+            if boys:
+                lines.append(f"- Средно при момчетата (взели теста): {round(sum(boys) / len(boys), 1)}т.")
+            if girls:
+                lines.append(f"- Средно при момичетата (взели теста): {round(sum(girls) / len(girls), 1)}т.")
+
+            return "\n".join(lines) + "\n"
+        except Exception as e:
+            logger.warning(f"Error building anonymous performance summary: {e}")
+            return ""
+
     def _build_prompt_from_test_data(self, test_data: Dict[str, Any]) -> str:
         return self._build_prompt(
             test_data.get("class_name", "Unknown"),
@@ -399,93 +487,10 @@ class GeminiService:
             if girls_avg is not None:
                 gender_stats_text += f"Момичета: {round(girls_avg, 1)}т."
         
-        # Build student details section if data available
-        student_details = ""
-        # Safety check: ensure students and results are lists
-        try:
-            if students and isinstance(students, list) and results and isinstance(results, list):
-                student_details = "\n\nДЕТАЙЛИ ЗА УЧЕНИЦИТЕ:\n"
-                
-                # Sort students by points (descending) to show best and worst first
-                students_with_results = []
-                # Compact prompt: only first 10 students for matching, show top/bottom 3 in output
-                max_students = min(len(students), 10) if students else 0
-                for student in students[:max_students]:
-                    student_id = student.get("id") or student.get("student_id")
-                    student_name = student.get("name", "Unknown")
-                    student_gender = student.get("gender", "")
-                    
-                    # Normalize gender for display
-                    if student_gender in ["male", "М"]:
-                        gender_display = "М"
-                    elif student_gender in ["female", "Ж"]:
-                        gender_display = "Ж"
-                    else:
-                        gender_display = student_gender
-                    
-                    # Find matching result
-                    student_result = None
-                    for result in results:
-                        result_student_id = result.get("student_id") or result.get("student")
-                        if result_student_id == student_id or result.get("student") == student_id:
-                            student_result = result
-                            break
-                    
-                    if student_result and student_result.get("participated", True):
-                        points = student_result.get("points") or student_result.get("total_points", 0)
-                        grade = student_result.get("grade", 0)
-                        percentage = student_result.get("percentage")
-                        
-                        # Calculate percentage if not available
-                        if percentage is None and test_max_points > 0:
-                            percentage = round((points / test_max_points) * 100, 1)
-                        
-                        # Get question answers if available (q1, q2, etc.)
-                        correct_questions = []
-                        wrong_questions = []
-                        
-                        if total_questions > 0:
-                            for i in range(1, min(total_questions + 1, 20)):  # Limit to 20 questions
-                                q_key = f"q{i}"
-                                if q_key in student_result:
-                                    if self._is_answer_correct(student_result[q_key]):
-                                        correct_questions.append(i)
-                                    else:
-                                        wrong_questions.append(i)
-                        
-                        students_with_results.append({
-                            "name": student_name,
-                            "gender": gender_display,
-                            "points": points,
-                            "grade": grade,
-                            "percentage": percentage,
-                            "correct": correct_questions,
-                            "wrong": wrong_questions
-                        })
-                
-                # Sort by points (descending)
-                students_with_results.sort(key=lambda x: x["points"], reverse=True)
-                
-                # Top 3 + bottom 3 only (saves input tokens)
-                highlight = []
-                if students_with_results:
-                    highlight = students_with_results[:3]
-                    if len(students_with_results) > 3:
-                        for s in students_with_results[-3:]:
-                            if s not in highlight:
-                                highlight.append(s)
-                for s in highlight:
-                    try:
-                        student_details += (
-                            f"- {s.get('name', 'Unknown')} ({s.get('gender', '')}): "
-                            f"{s.get('points', 0)}т., оценка {s.get('grade', 0)}\n"
-                        )
-                    except (KeyError, TypeError, IndexError) as e:
-                        logger.warning(f"Error formatting student details: {e}")
-                        continue
-        except Exception as e:
-            logger.warning(f"Error building student details: {e}")
-            # Continue without student details if there's an error
+        # Anonymous aggregate performance (no individual names in prompt or output)
+        student_details = self._build_anonymous_performance_summary(
+            students, results, test_max_points
+        )
         
         # Add question success rates if available
         question_analysis = ""
@@ -543,6 +548,8 @@ class GeminiService:
 - Използвай данните за анализ
 - Всеки анализ трябва да е отделен параграф
 - НЕ използвай markdown форматиране (**, ##, и т.н.)
+- НЕ споменавай имена на отделни ученици (нито реални, нито измислени)
+- Говори само общо: „учениците“, „част от класа“, „ученици с по-ниски/по-високи резултати“, „най-слабите/най-силните резултати“
 
 ФОРМАТ НА ОТГОВОРА - ЗАДЪЛЖИТЕЛНО използвай ТОЧНО тези заглавия:
 LOWEST_RESULTS:
