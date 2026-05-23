@@ -6,9 +6,65 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from typing import List, Optional, Union
 from functools import lru_cache
+from pathlib import Path
+import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+CONFIG_FILE_PATH = Path(__file__).parent / "config.json"
+
+
+def _read_config_gemini_api_key() -> Optional[str]:
+    """Gemini API key stored in config.json (AI settings UI)."""
+    if not CONFIG_FILE_PATH.exists():
+        return None
+    try:
+        with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        key = (data.get("ai_settings") or {}).get("gemini_api_key")
+        if isinstance(key, str):
+            key = key.strip()
+            return key or None
+    except Exception as e:
+        logger.warning("Could not read gemini_api_key from config.json: %s", e)
+    return None
+
+
+def get_effective_gemini_api_key(settings: Optional["Settings"] = None) -> Optional[str]:
+    """
+    Active Gemini API key from the rotation pool (or legacy single-key sources).
+    """
+    try:
+        from services.gemini_key_pool import get_active_gemini_api_key, load_gemini_api_keys
+
+        keys = load_gemini_api_keys(settings)
+        if keys:
+            if settings is not None:
+                return keys[0]
+            active = get_active_gemini_api_key()
+            return active or keys[0]
+    except Exception as e:
+        logger.debug("Gemini key pool unavailable, using legacy resolution: %s", e)
+
+    config_key = _read_config_gemini_api_key()
+    if config_key:
+        return config_key
+    if settings is None:
+        return None
+    env_key = settings.gemini_api_key
+    if isinstance(env_key, str):
+        env_key = env_key.strip()
+        return env_key or None
+    return None
+
+
+def mask_gemini_api_key_hint(api_key: Optional[str]) -> Optional[str]:
+    if not api_key:
+        return None
+    if len(api_key) < 8:
+        return "****"
+    return f"…{api_key[-4:]}"
 
 
 class Settings(BaseSettings):
@@ -38,11 +94,16 @@ class Settings(BaseSettings):
     # Gemini AI Configuration
     gemini_api_key: Optional[str] = None
     gemini_model: Optional[str] = None  # Optional: specify model name (e.g., "gemini-1.5-flash", "gemini-1.5-pro")
+
+    # Groq AI Configuration (stage 1 draft generation)
+    groq_api_key: Optional[str] = None
+    groq_model: Optional[str] = None
     
     # Supabase Configuration
     supabase_url: str
     supabase_anon_key: Optional[str] = None
     supabase_key: Optional[str] = None  # Alternative to anon_key
+    supabase_service_role_key: Optional[str] = None  # Bypass RLS for teacher reads (keep secret)
     
     # CORS Configuration
     # Can be set via ALLOWED_ORIGINS environment variable as comma-separated string
@@ -137,8 +198,10 @@ def validate_settings(settings: Settings) -> None:
     """
     errors = []
     
-    if not settings.gemini_api_key:
-        errors.append("GEMINI_API_KEY is required")
+    if not get_effective_gemini_api_key(settings):
+        errors.append(
+            "GEMINI_API_KEY is required (.env или Gemini API ключ в AI настройки)"
+        )
     
     # Check Supabase configuration
     if not settings.supabase_url:
@@ -155,7 +218,9 @@ def validate_settings(settings: Settings) -> None:
     # Log configuration status
     logger.info("Settings validated successfully")
     logger.debug(f"Environment: {settings.environment}")
-    logger.debug(f"Gemini API Key: {'Set' if settings.gemini_api_key else 'Missing'}")
+    logger.debug(
+        f"Gemini API Key: {'Set' if get_effective_gemini_api_key(settings) else 'Missing'}"
+    )
     logger.debug(f"Supabase URL: {'Set' if settings.supabase_url else 'Missing'}")
     logger.debug(f"Supabase Key: {'Set' if (settings.supabase_anon_key or settings.supabase_key) else 'Missing'}")
     logger.debug(f"CORS Origins: {len(settings.allowed_origins)} origins")

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { Layout } from './components/layout/Layout';
@@ -28,6 +28,12 @@ function TeacherApp() {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as TabType);
   };
+
+  useEffect(() => {
+    const openSettings = () => setShowSettingsModal(true);
+    window.addEventListener('open-ai-settings', openSettings);
+    return () => window.removeEventListener('open-ai-settings', openSettings);
+  }, []);
 
   return (
     <AppProvider>

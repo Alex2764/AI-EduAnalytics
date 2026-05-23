@@ -62,7 +62,11 @@ export function clearTakeLockState(token: string): void {
   localStorage.removeItem(takeLockStorageKey(token));
 }
 
-/** I група = нечетен номер, II група = четен номер (при тест с две групи). */
+/** I група = нечетен № в списъка, II група = четен № (при тест с две групи). */
+export function studentNumberToTestGroup(studentNumber: number): 1 | 2 {
+  return studentNumber % 2 === 1 ? 1 : 2;
+}
+
 export function studentBelongsToTestGroup(
   studentNumber: number,
   groupNumber: number,
@@ -71,8 +75,7 @@ export function studentBelongsToTestGroup(
   if (!hasGroups) {
     return true;
   }
-  const studentGroup = studentNumber % 2 === 1 ? 1 : 2;
-  return studentGroup === groupNumber;
+  return studentNumberToTestGroup(studentNumber) === groupNumber;
 }
 
 export function namesMatchExactly(input: TakeNameInput, student: Student): boolean {
@@ -88,6 +91,25 @@ export function namesMatchExactly(input: TakeNameInput, student: Student): boole
   );
 }
 
+export function findStudentInClassByName(
+  students: Student[],
+  className: string,
+  input: TakeNameInput
+): Student | null {
+  return (
+    students.find(
+      student => student.class === className && namesMatchExactly(input, student)
+    ) ?? null
+  );
+}
+
+export function resolveGroupForStudent(student: Student, hasGroups: boolean): number {
+  if (!hasGroups) {
+    return 1;
+  }
+  return studentNumberToTestGroup(student.number);
+}
+
 export function findMatchingStudent(
   students: Student[],
   className: string,
@@ -95,22 +117,52 @@ export function findMatchingStudent(
   hasGroups: boolean,
   input: TakeNameInput
 ): Student | null {
-  return (
-    students.find(
-      student =>
-        student.class === className &&
-        studentBelongsToTestGroup(student.number, groupNumber, hasGroups) &&
-        namesMatchExactly(input, student)
-    ) ?? null
-  );
+  const student = findStudentInClassByName(students, className, input);
+  if (!student) {
+    return null;
+  }
+  if (!studentBelongsToTestGroup(student.number, groupNumber, hasGroups)) {
+    return null;
+  }
+  return student;
+}
+
+export type TakeIdentityResult =
+  | { status: 'ok'; student: Student; groupNumber: number }
+  | { status: 'not_found' };
+
+/** Match by name; group (I/II) is derived from № in class list (odd=I, even=II). */
+export function verifyTakeTestIdentity(
+  students: Student[],
+  className: string,
+  hasGroups: boolean,
+  input: TakeNameInput
+): TakeIdentityResult {
+  const student = findStudentInClassByName(students, className, input);
+  if (!student) {
+    return { status: 'not_found' };
+  }
+  return {
+    status: 'ok',
+    student,
+    groupNumber: resolveGroupForStudent(student, hasGroups),
+  };
+}
+
+export function formatDisplayNameFromInput(input: TakeNameInput): string {
+  return [input.firstName, input.middleName, input.lastName]
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 export function formatStudentDisplayName(student: Student): string {
   const middle = (student.middleName ?? '').trim();
-  return [student.firstName, middle, student.lastName]
-    .map(part => part.trim())
-    .filter(Boolean)
-    .join(' ');
+  return formatDisplayNameFromInput({
+    firstName: student.firstName,
+    middleName: middle,
+    lastName: student.lastName,
+  });
 }
 
 export function getQuestionCorrectAnswer(

@@ -29,6 +29,12 @@ export interface AISettings {
   subject?: string | null;
   temperature?: number;
   max_output_tokens?: number;
+  /** True when a key is configured (.env or saved in settings). */
+  gemini_api_key_set?: boolean;
+  /** Masked hint, e.g. …abc1 */
+  gemini_api_key_hint?: string | null;
+  /** Send only when saving a new key (never returned from GET). */
+  gemini_api_key?: string;
 }
 
 export interface TestTokenInfo {
@@ -46,6 +52,8 @@ export interface CreateTestPayload {
   grade_scale: Record<string, number | string>;
   questions: unknown[];
   has_groups: boolean;
+  /** Defaults to online when omitted (tests with share links). */
+  mode?: 'online' | 'offline';
 }
 
 export interface CreateTestResponse {
@@ -246,6 +254,7 @@ export interface AIAnalysisResponse {
     improvement_measures: string;
   };
   provider: string;
+  cached?: boolean;
 }
 
 /**
@@ -255,7 +264,11 @@ export interface AIAnalysisResponse {
  * @returns Promise that resolves with AI analysis response
  * @throws Error if request fails
  */
-export async function generateAIAnalysis(testId: string, classId: string): Promise<AIAnalysisResponse['analysis']> {
+export async function generateAIAnalysis(
+  testId: string,
+  classId: string,
+  options?: { force?: boolean },
+): Promise<AIAnalysisResponse['analysis']> {
   try {
     // Validate inputs
     if (!testId || !testId.trim()) {
@@ -269,8 +282,9 @@ export async function generateAIAnalysis(testId: string, classId: string): Promi
     const encodedClassId = encodeURIComponent(classId.trim());
     const encodedTestId = encodeURIComponent(testId.trim());
 
+    const forceParam = options?.force ? '&force=true' : '';
     const response = await fetch(
-      `${API_BASE_URL}/api/analytics/${encodedTestId}/generate-analysis?class_id=${encodedClassId}`,
+      `${API_BASE_URL}/api/analytics/${encodedTestId}/generate-analysis?class_id=${encodedClassId}${forceParam}`,
       {
         method: 'POST',
         headers: {

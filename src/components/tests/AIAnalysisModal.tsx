@@ -214,6 +214,7 @@ ${separator}
                   <TestAnalysisButton
                     testId={testId}
                     classId={classUuid}
+                    hasExistingAnalysis={!!aiAnalysis}
                     onAnalysisGenerated={(analysis) => {
                       setAiAnalysis(analysis);
                       // Dispatch event за обновяване на историята

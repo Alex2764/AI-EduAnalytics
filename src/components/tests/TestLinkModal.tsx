@@ -103,7 +103,9 @@ export const TestLinkModal: React.FC<TestLinkModalProps> = ({
         {!loading && !error && links.length > 0 && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Споделете линка с учениците. Всеки линк отваря съответния вариант на теста.
+              Споделете който и да е от линковете — ученикът въвежда имената си и системата
+              определя I/II група по номера в списъка (нечетен → I, четен → II). Двата линка
+              са за същия тест; различават се само въпросите по група.
             </p>
             {links.map(entry => {
               const copyKey = String(entry.groupNumber);

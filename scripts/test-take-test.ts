@@ -9,8 +9,10 @@ import {
   readTakeLockState,
   recordFailedTakeAttempt,
   studentBelongsToTestGroup,
+  studentNumberToTestGroup,
   TAKE_MAX_FAILED_ATTEMPTS,
   takeLockStorageKey,
+  verifyTakeTestIdentity,
   writeTakeLockState,
 } from '../src/utils/takeTest';
 import type { Question, Student } from '../src/types';
@@ -85,6 +87,8 @@ function run() {
   assert.equal(studentBelongsToTestGroup(2, 1, true), false);
   assert.equal(studentBelongsToTestGroup(2, 2, true), true);
   assert.equal(studentBelongsToTestGroup(1, 2, false), true);
+  assert.equal(studentNumberToTestGroup(3), 1);
+  assert.equal(studentNumberToTestGroup(4), 2);
 
   assert.equal(
     namesMatchExactly(
@@ -117,6 +121,26 @@ function run() {
     }),
     null
   );
+
+  const aleksandar: Student = {
+    id: 's3',
+    firstName: 'Александър',
+    middleName: 'Станиславов',
+    lastName: 'Станев',
+    class: '9А',
+    number: 3,
+    gender: 'male',
+  };
+  const resolved = verifyTakeTestIdentity(
+    [aleksandar],
+    '9А',
+    true,
+    { firstName: 'Александър', middleName: 'Станиславов', lastName: 'Станев' }
+  );
+  assert.equal(resolved.status, 'ok');
+  if (resolved.status === 'ok') {
+    assert.equal(resolved.groupNumber, 1);
+  }
 
   const questions: Question[] = [
     {

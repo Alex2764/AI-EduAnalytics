@@ -22,6 +22,9 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
   // AI Settings state
   const [teacherName, setTeacherName] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
+  const [geminiApiKey, setGeminiApiKey] = useState<string>('');
+  const [geminiKeySet, setGeminiKeySet] = useState(false);
+  const [geminiKeyHint, setGeminiKeyHint] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
 
   // Load AI settings function
@@ -30,6 +33,9 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
       const settings = await aiSettingsAPI.getAISettings();
       setTeacherName(settings.teacher_name || '');
       setSubject(settings.subject || '');
+      setGeminiKeySet(Boolean(settings.gemini_api_key_set));
+      setGeminiKeyHint(settings.gemini_api_key_hint ?? null);
+      setGeminiApiKey('');
     } catch (err: any) {
       // Silently fail if backend is not available
       if (shouldIgnoreError(err)) {
@@ -69,11 +75,23 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
     setSuccess(null);
 
     try {
-      await aiSettingsAPI.updateAISettings({
+      const payload: Parameters<typeof aiSettingsAPI.updateAISettings>[0] = {
         teacher_name: teacherName.trim() || null,
         subject: subject.trim() || null,
-      });
-      setSuccess('AI настройките са запазени успешно!');
+      };
+      const trimmedKey = geminiApiKey.trim();
+      if (trimmedKey) {
+        payload.gemini_api_key = trimmedKey;
+      }
+      const updated = await aiSettingsAPI.updateAISettings(payload);
+      setGeminiKeySet(Boolean(updated.gemini_api_key_set));
+      setGeminiKeyHint(updated.gemini_api_key_hint ?? null);
+      setGeminiApiKey('');
+      setSuccess(
+        trimmedKey
+          ? 'AI настройките и новият Gemini API ключ са запазени!'
+          : 'AI настройките са запазени успешно!',
+      );
     } catch (err: any) {
       const errorMessage = getErrorMessage(err, 'Грешка при запазване на настройки');
       setError(errorMessage);
@@ -196,6 +214,39 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({ isOpen, onClos
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Напр: Математика, Информатика"
             />
+            <div className="space-y-2">
+              <Input
+                label="Gemini API ключ"
+                type="password"
+                value={geminiApiKey}
+                onChange={(e) => setGeminiApiKey(e.target.value)}
+                placeholder={
+                  geminiKeySet
+                    ? 'Оставете празно, за да запазите текущия ключ'
+                    : 'Поставете API ключ от Google AI Studio'
+                }
+              />
+              {geminiKeySet && geminiKeyHint && (
+                <p className="text-sm text-gray-600">
+                  Активен ключ: <span className="font-mono">{geminiKeyHint}</span>
+                </p>
+              )}
+              <p className="text-sm text-gray-600">
+                При изчерпана квота приложението автоматично пробва следващ ключ от пула (
+                <code className="text-xs bg-gray-100 px-1 rounded">gemini_api_keys.local.json</code>
+                ). Можете да добавите и резервен ключ тук. Ако всички са изчерпани за деня — опитайте утре.
+              </p>
+              <p className="text-sm">
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-700 hover:underline"
+                >
+                  Създай API ключ в Google AI Studio
+                </a>
+              </p>
+            </div>
             <div className="flex justify-end">
               <Button
                 onClick={handleSaveSettings}

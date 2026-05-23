@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS submissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   test_id uuid NOT NULL REFERENCES tests(id) ON DELETE CASCADE,
+  token_id uuid NOT NULL REFERENCES test_tokens(id) ON DELETE CASCADE,
   student_name text NOT NULL,
   group_number integer NOT NULL CHECK (group_number IN (1, 2)),
   answers jsonb NOT NULL,

@@ -350,7 +350,7 @@ export const TestForm: React.FC<TestFormProps> = ({ onSuccess }) => {
           grade6: grade6Num,
         },
         hasGroups,
-        mode: 'offline',
+        mode: 'online',
         questions: questions,
       });
 

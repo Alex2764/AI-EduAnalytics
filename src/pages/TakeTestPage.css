@@ -1,0 +1,423 @@
+/* Student-facing /take/:token — isolated from teacher app chrome */
+
+.take-test {
+  --take-max: 42rem;
+  --take-gutter: clamp(1.25rem, 5vw, 2.5rem);
+  --take-radius: 1rem;
+  --take-accent: #2563eb;
+  --take-accent-soft: #eff6ff;
+  --take-surface: #ffffff;
+  --take-muted: #64748b;
+  --take-border: #e2e8f0;
+  --take-shadow: 0 1px 3px rgb(15 23 42 / 6%), 0 8px 24px rgb(15 23 42 / 6%);
+
+  min-height: 100vh;
+  margin: -1.5rem;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 45%, #f1f5f9 100%);
+  color: #0f172a;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.take-test__header {
+  background: var(--take-surface);
+  border-bottom: 1px solid var(--take-border);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 80%);
+}
+
+.take-test__header-inner,
+.take-test__main-inner {
+  max-width: var(--take-max);
+  margin-inline: auto;
+  padding-inline: var(--take-gutter);
+}
+
+.take-test__header-inner {
+  padding-block: 1.25rem 1rem;
+}
+
+.take-test__eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--take-muted);
+  margin-bottom: 0.35rem;
+}
+
+.take-test__title {
+  font-size: clamp(1.25rem, 3vw, 1.625rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.take-test__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--take-muted);
+}
+
+.take-test__meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  background: #f1f5f9;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+}
+
+.take-test__main {
+  flex: 1;
+  padding-block: 1.75rem 2.5rem;
+}
+
+.take-test__card {
+  background: var(--take-surface);
+  border: 1px solid var(--take-border);
+  border-radius: calc(var(--take-radius) + 4px);
+  box-shadow: var(--take-shadow);
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.take-test__card-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.take-test__card-lead {
+  font-size: 0.9375rem;
+  color: var(--take-muted);
+  line-height: 1.55;
+  margin-bottom: 1.5rem;
+}
+
+.take-test__card-hint {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.take-test__identify-alert {
+  margin-bottom: 1.25rem;
+  text-align: left;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.take-test__name-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .take-test__name-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.take-test__field label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.4rem;
+}
+
+.take-test__field input {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  font-size: 1rem;
+  border: 1.5px solid var(--take-border);
+  border-radius: 0.625rem;
+  background: #fafbfc;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.take-test__field input:focus {
+  outline: none;
+  border-color: var(--take-accent);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 15%);
+  background: #fff;
+}
+
+.take-test__welcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: var(--take-radius);
+  font-size: 0.9375rem;
+  color: #166534;
+  line-height: 1.5;
+}
+
+.take-test__welcome-icon {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.take-test__progress {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--take-muted);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.take-test__questions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.take-test__question {
+  background: var(--take-surface);
+  border: 1px solid var(--take-border);
+  border-radius: calc(var(--take-radius) + 2px);
+  box-shadow: var(--take-shadow);
+  overflow: hidden;
+}
+
+.take-test__question-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  background: linear-gradient(90deg, var(--take-accent-soft) 0%, #fff 100%);
+  border-bottom: 1px solid var(--take-border);
+}
+
+.take-test__question-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--take-accent);
+  border-radius: 0.5rem;
+}
+
+.take-test__question-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.take-test__tag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: var(--take-muted);
+  border: 1px solid var(--take-border);
+}
+
+.take-test__tag--mc {
+  color: #6d28d9;
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+
+.take-test__question-body {
+  padding: 1.15rem 1.15rem 1.25rem;
+}
+
+.take-test__question-text {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: #1e293b;
+  white-space: pre-wrap;
+  margin-bottom: 1.15rem;
+}
+
+.take-test__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.take-test__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--take-border);
+  border-radius: 0.75rem;
+  background: #fafbfc;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.take-test__option:hover {
+  border-color: #93c5fd;
+  background: #fff;
+}
+
+.take-test__option--selected {
+  border-color: var(--take-accent);
+  background: var(--take-accent-soft);
+  box-shadow: 0 0 0 1px rgb(37 99 235 / 12%);
+}
+
+.take-test__option input {
+  margin-top: 0.2rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--take-accent);
+  flex-shrink: 0;
+}
+
+.take-test__option-letter {
+  font-weight: 700;
+  color: var(--take-accent);
+  min-width: 1.25rem;
+}
+
+.take-test__option-text {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.take-test__short-input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  border: 2px solid var(--take-border);
+  border-radius: 0.75rem;
+  background: #fafbfc;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.take-test__short-input:focus {
+  outline: none;
+  border-color: var(--take-accent);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 15%);
+  background: #fff;
+}
+
+.take-test__short-input::placeholder {
+  color: #94a3b8;
+}
+
+.take-test__footer {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--take-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.take-test__footer-hint {
+  font-size: 0.8125rem;
+  color: var(--take-muted);
+}
+
+.take-test__submit {
+  min-width: 12rem;
+  padding: 0.75rem 2rem !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  border-radius: 0.75rem !important;
+}
+
+.take-test__alert {
+  border-radius: var(--take-radius);
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.take-test__alert--error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.take-test__alert--warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.take-test__alert--ok {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.take-test__alert-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.take-test__inline-error {
+  font-size: 0.875rem;
+  color: #dc2626;
+  margin-top: 0.5rem;
+}
+
+.take-test__loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--take-muted);
+  font-size: 0.9375rem;
+}
+
+.take-test__actions {
+  margin-top: 1.25rem;
+}
+
+.take-test__actions .btn {
+  border-radius: 0.75rem;
+  padding: 0.7rem 1.5rem;
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .take-test__actions .btn {
+    width: auto;
+  }
+}

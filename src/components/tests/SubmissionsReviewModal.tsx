@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { useAppContext } from '../../context/AppContext';
-import { loadPendingSubmissionsForTest, updateSubmissionStatus } from '../../lib/submissionsApi';
+import {
+  countAllSubmissionsForTest,
+  loadPendingSubmissionsForTest,
+  SUBMISSIONS_RLS_HINT,
+  updateSubmissionStatus,
+} from '../../lib/submissionsApi';
 import { TEST_GROUP_LABELS } from '../../utils/testLinks';
 import { OPTION_LABELS } from '../../utils/validateQuestions';
 import {
@@ -18,12 +23,20 @@ import {
 } from '../../utils/takeTest';
 import { calculateGrade } from '../../utils/gradeCalculator';
 import type { Submission, Test } from '../../types';
+import './SubmissionsReviewModal.css';
 
 interface SubmissionsReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   test: Test | null;
   onFinalized?: () => void;
+}
+
+function studentInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
 export const SubmissionsReviewModal: React.FC<SubmissionsReviewModalProps> = ({
@@ -39,6 +52,7 @@ export const SubmissionsReviewModal: React.FC<SubmissionsReviewModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [finalizing, setFinalizing] = useState(false);
+  const [totalSubmissions, setTotalSubmissions] = useState<number | null>(null);
 
   const selected = useMemo(
     () => submissions.find(s => s.id === selectedId) ?? null,
@@ -70,6 +84,8 @@ export const SubmissionsReviewModal: React.FC<SubmissionsReviewModalProps> = ({
     setError('');
     try {
       const rows = await loadPendingSubmissionsForTest(test.id);
+      const total = await countAllSubmissionsForTest(test.id);
+      setTotalSubmissions(total);
       setSubmissions(rows);
       if (rows.length > 0) {
         setSelectedId(rows[0].id);
@@ -184,51 +200,71 @@ export const SubmissionsReviewModal: React.FC<SubmissionsReviewModalProps> = ({
       title={`Преглед на предавания — ${test.name}`}
       size="xl"
     >
-      <div className="space-y-4">
+      <div className="submission-review">
         {loading && (
-          <p className="text-sm text-gray-600 text-center py-6">Зареждане...</p>
+          <p className="submission-review__loading">Зареждане на предавания...</p>
         )}
 
         {!loading && submissions.length === 0 && !error && (
-          <p className="text-sm text-gray-600 text-center py-6">
-            Няма предавания, чакащи преглед.
-          </p>
+          <div className="submission-review__empty">
+            <p>Няма предавания, чакащи преглед за този тест.</p>
+            {totalSubmissions != null && totalSubmissions > 0 && (
+              <p className="submission-review__hint submission-review__hint--warn">
+                В базата има {totalSubmissions} предавания за този тест, но не са видими
+                като чакащи — вероятно вече са финализирани.
+              </p>
+            )}
+            {totalSubmissions === 0 && (
+              <p className="submission-review__hint submission-review__hint--muted">
+                В таблица submissions няма записи за този тест.
+              </p>
+            )}
+            {totalSubmissions === -1 && (
+              <p className="submission-review__hint submission-review__hint--error">
+                {SUBMISSIONS_RLS_HINT}
+              </p>
+            )}
+          </div>
         )}
 
-        {error && (
-          <p className="text-sm text-red-600" role="alert">
+        {error && submissions.length === 0 && !loading && (
+          <p className="submission-review__error" role="alert">
             {error}
           </p>
         )}
 
         {!loading && submissions.length > 0 && selected && (
-          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4 min-h-[420px]">
-            <aside className="border border-gray-200 rounded-lg overflow-hidden">
-              <p className="text-xs font-semibold text-gray-500 uppercase px-3 py-2 bg-gray-50 border-b">
-                Чакат преглед ({submissions.length})
+          <div className="submission-review__layout">
+            <aside className="submission-review__sidebar">
+              <p className="submission-review__sidebar-head">
+                Чакат преглед · {submissions.length}
               </p>
-              <ul className="max-h-[380px] overflow-y-auto">
+              <ul className="submission-review__list">
                 {submissions.map(sub => {
                   const active = sub.id === selectedId;
                   const groupLabel = test.hasGroups
                     ? TEST_GROUP_LABELS[sub.groupNumber]
                     : null;
                   return (
-                    <li key={sub.id}>
+                    <li key={sub.id} className="submission-review__list-item">
                       <button
                         type="button"
                         onClick={() => selectSubmission(sub)}
-                        className={`w-full text-left px-3 py-2.5 text-sm border-b border-gray-100 hover:bg-blue-50 ${
-                          active ? 'bg-blue-100 font-medium' : ''
+                        className={`submission-review__list-btn${
+                          active ? ' submission-review__list-btn--active' : ''
                         }`}
                       >
-                        <div className="text-gray-900">{sub.studentName}</div>
-                        {groupLabel && (
-                          <div className="text-xs text-gray-500">{groupLabel}</div>
-                        )}
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          Авто: {sub.autoPoints} т.
-                        </div>
+                        <span className="submission-review__list-name">
+                          {sub.studentName}
+                        </span>
+                        <span className="submission-review__list-meta">
+                          {groupLabel && (
+                            <span className="submission-review__badge">{groupLabel}</span>
+                          )}
+                          <span className="submission-review__badge submission-review__badge--points">
+                            Авто {sub.autoPoints} т.
+                          </span>
+                        </span>
                       </button>
                     </li>
                   );
@@ -236,39 +272,55 @@ export const SubmissionsReviewModal: React.FC<SubmissionsReviewModalProps> = ({
               </ul>
             </aside>
 
-            <div className="space-y-4 min-w-0">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="submission-review__main">
+              {error && (
+                <p className="submission-review__error" role="alert">
+                  {error}
+                </p>
+              )}
+
+              <div className="submission-review__main-scroll">
+              <div className="submission-review__student-card">
+                <div className="submission-review__student-left">
+                  <span className="submission-review__avatar" aria-hidden>
+                    {studentInitials(selected.studentName)}
+                  </span>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{selected.studentName}</h3>
+                    <h3 className="submission-review__student-title">
+                      {selected.studentName}
+                    </h3>
                     {test.hasGroups && (
-                      <p className="text-sm text-gray-600">
+                      <p className="submission-review__student-sub">
                         {TEST_GROUP_LABELS[selected.groupNumber]}
                       </p>
                     )}
                     {matchedStudent ? (
-                      <p className="text-xs text-green-700 mt-1">
-                        Свързан с ученик № {matchedStudent.number} от {test.class}
+                      <p className="submission-review__student-sub submission-review__student-sub--ok">
+                        № {matchedStudent.number} · {test.class}
                       </p>
                     ) : (
-                      <p className="text-xs text-amber-700 mt-1">
-                        Ученикът не е намерен в класния списък — финализирането е блокирано.
+                      <p className="submission-review__student-sub submission-review__student-sub--warn">
+                        Не е в класния списък — финализирането е блокирано
                       </p>
                     )}
                   </div>
-                  <div className="text-right text-sm">
-                    <div className="text-gray-600">Автоматични точки</div>
-                    <div className="font-semibold text-gray-900">{selected.autoPoints} т.</div>
+                </div>
+                <div className="submission-review__auto-score">
+                  <div className="submission-review__auto-label">Автоматично</div>
+                  <div className="submission-review__auto-value">
+                    {selected.autoPoints} т.
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+              <div className="submission-review__questions">
                 {displayQuestions.map(dq => {
                   const sourceQuestion = test.questions.find(q => q.id === dq.id);
                   if (!sourceQuestion) return null;
 
-                  const submissionAnswer = selected.answers.find(a => a.questionId === dq.id);
+                  const submissionAnswer = selected.answers.find(
+                    a => a.questionId === dq.id
+                  );
                   const correct = getQuestionCorrectAnswer(
                     sourceQuestion,
                     selected.groupNumber,
@@ -278,101 +330,103 @@ export const SubmissionsReviewModal: React.FC<SubmissionsReviewModalProps> = ({
                   const isMc = dq.type === 'multiple_choice';
 
                   return (
-                    <div
-                      key={dq.id}
-                      className="border border-gray-200 rounded-lg p-4 bg-white"
-                    >
-                      <div className="flex flex-wrap gap-2 mb-2 text-sm">
-                        <span className="font-semibold text-blue-700">
-                          Въпрос {dq.index}
+                    <article key={dq.id} className="submission-review__question">
+                      <div className="submission-review__question-head">
+                        <span className="submission-review__q-num">{dq.index}</span>
+                        <span className="submission-review__q-meta">
+                          {dq.points} {dq.points === 1 ? 'т.' : 'т.'}
                         </span>
-                        <span className="text-gray-500">
-                          ({dq.points} т.)
-                        </span>
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                          {isMc ? 'Изборен' : 'Кратък отговор'}
-                        </span>
-                      </div>
-
-                      <p className="text-sm text-gray-900 mb-3 whitespace-pre-wrap">
-                        {dq.text || '—'}
-                      </p>
-
-                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mb-3">
-                        <div>
-                          <dt className="text-gray-500">Отговор на ученика</dt>
-                          <dd className="font-medium text-gray-900">
-                            {formatStudentAnswer(
-                              submissionAnswer?.answer ?? '',
-                              dq.type,
-                              dq.options
-                            )}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-gray-500">Верен отговор</dt>
-                          <dd className="font-medium text-green-800">{correct || '—'}</dd>
-                        </div>
-                        {isMc && (
-                          <div>
-                            <dt className="text-gray-500">Автоматични точки</dt>
-                            <dd className="font-medium text-gray-900">
-                              {submissionAnswer?.auto_points ?? 0} / {dq.points}
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
-
-                      <div className="flex items-center gap-2">
-                        <label
-                          htmlFor={`points-${dq.id}`}
-                          className="text-sm text-gray-700"
+                        <span
+                          className={`submission-review__q-type${
+                            isMc ? '' : ' submission-review__q-type--short'
+                          }`}
                         >
-                          Точки:
-                        </label>
-                        <input
-                          id={`points-${dq.id}`}
-                          type="number"
-                          min={0}
-                          max={dq.points}
-                          step={dq.points === 1 ? 1 : 0.5}
-                          value={earned || ''}
-                          onChange={e =>
-                            handlePointsChange(dq.id, e.target.value, dq.points)
-                          }
-                          className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <span className="text-xs text-gray-500">/ {dq.points}</span>
+                          {isMc ? 'Изборен' : 'Кратък'}
+                        </span>
                       </div>
-                    </div>
+                      <div className="submission-review__question-body">
+                        <p className="submission-review__q-text">{dq.text || '—'}</p>
+
+                        <div className="submission-review__answers-grid">
+                          <div className="submission-review__answer-box">
+                            <span className="submission-review__answer-label">
+                              Отговор на ученика
+                            </span>
+                            <span className="submission-review__answer-value">
+                              {formatStudentAnswer(
+                                submissionAnswer?.answer ?? '',
+                                dq.type,
+                                dq.options
+                              )}
+                            </span>
+                          </div>
+                          <div className="submission-review__answer-box submission-review__answer-box--correct">
+                            <span className="submission-review__answer-label">
+                              Верен отговор
+                            </span>
+                            <span className="submission-review__answer-value submission-review__answer-value--correct">
+                              {correct || '—'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isMc && (
+                          <p className="submission-review__auto-hint">
+                            Автоматични точки: {submissionAnswer?.auto_points ?? 0} /{' '}
+                            {dq.points}
+                          </p>
+                        )}
+
+                        <div className="submission-review__points-row">
+                          <span className="submission-review__points-label">
+                            Точки за въпроса
+                          </span>
+                          <input
+                            id={`points-${dq.id}`}
+                            type="number"
+                            className="submission-review__points-input"
+                            min={0}
+                            max={dq.points}
+                            step={dq.points === 1 ? 1 : 0.5}
+                            value={earned || ''}
+                            onChange={e =>
+                              handlePointsChange(dq.id, e.target.value, dq.points)
+                            }
+                          />
+                          <span className="submission-review__points-max">
+                            от {dq.points} т.
+                          </span>
+                        </div>
+                      </div>
+                    </article>
                   );
                 })}
               </div>
+              </div>
 
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <div className="text-xs text-gray-600">Общо точки</div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {totalPoints.toFixed(1)} / {test.maxPoints}
-                    </div>
+              <div className="submission-review__bottom">
+              <div className="submission-review__summary">
+                <div className="submission-review__summary-item">
+                  <div className="submission-review__summary-label">Общо точки</div>
+                  <div className="submission-review__summary-value">
+                    {totalPoints.toFixed(1)} / {test.maxPoints}
                   </div>
-                  <div>
-                    <div className="text-xs text-gray-600">Процент</div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {previewPercentage > 0 ? `${Math.round(previewPercentage)}%` : '—'}
-                    </div>
+                </div>
+                <div className="submission-review__summary-item">
+                  <div className="submission-review__summary-label">Процент</div>
+                  <div className="submission-review__summary-value">
+                    {previewPercentage > 0 ? `${Math.round(previewPercentage)}%` : '—'}
                   </div>
-                  <div>
-                    <div className="text-xs text-gray-600">Оценка</div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {previewGrade || '—'}
-                    </div>
+                </div>
+                <div className="submission-review__summary-item">
+                  <div className="submission-review__summary-label">Оценка</div>
+                  <div className="submission-review__summary-value">
+                    {previewGrade || '—'}
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2 border-t">
+              <div className="submission-review__footer">
                 <Button variant="secondary" onClick={onClose} disabled={finalizing}>
                   Затвори
                 </Button>
@@ -380,8 +434,9 @@ export const SubmissionsReviewModal: React.FC<SubmissionsReviewModalProps> = ({
                   onClick={handleFinalize}
                   disabled={!matchedStudent || finalizing || test.questions.length === 0}
                 >
-                  {finalizing ? 'Финализиране...' : 'Финализирай'}
+                  {finalizing ? 'Финализиране...' : 'Финализирай в резултати'}
                 </Button>
+              </div>
               </div>
             </div>
           </div>

@@ -226,6 +226,7 @@ export interface Database {
         Row: {
           id: string
           test_id: string
+          token_id: string
           student_name: string
           group_number: number
           answers: Json | SubmissionAnswer[]
@@ -236,6 +237,7 @@ export interface Database {
         Insert: {
           id?: string
           test_id: string
+          token_id: string
           student_name: string
           group_number: number
           answers: Json | SubmissionAnswer[]
@@ -246,6 +248,7 @@ export interface Database {
         Update: {
           id?: string
           test_id?: string
+          token_id?: string
           student_name?: string
           group_number?: number
           answers?: Json | SubmissionAnswer[]

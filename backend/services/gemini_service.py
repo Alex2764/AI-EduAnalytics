@@ -13,19 +13,55 @@ except ImportError:
     raise ImportError("google-generativeai not installed. Run: pip install google-generativeai")
 
 # Import settings
-from config import get_settings
+from config import get_settings, get_effective_gemini_api_key, CONFIG_FILE_PATH
+import json
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# gemini-1.5-flash removed from Google API (v1beta) — use 2.x models
+DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+PREFERRED_GEMINI_MODELS = [
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-preview-05-20",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-pro-latest",
+]
+MAX_MODEL_FALLBACK_ATTEMPTS = 4
+GEMINI_EDIT_MAX_OUTPUT_TOKENS = 800
+GEMINI_EDIT_PROMPT_PREFIX = (
+    "Редактирай следния анализ на български за качество и стил. "
+    "Запази всички секции и съдържанието непроменено. "
+    "Върни само редактирания текст:\n\n"
+)
+
+ANALYSIS_SECTION_KEYS = [
+    "lowest_results_analysis",
+    "highest_results_analysis",
+    "gaps_analysis",
+    "results_analysis",
+    "improvement_measures",
+]
+
 
 class GeminiAPIError(Exception):
     """Custom exception for Gemini API errors"""
-    def __init__(self, message: str, is_rate_limit: bool = False, retry_after: Optional[int] = None):
+    def __init__(
+        self,
+        message: str,
+        is_rate_limit: bool = False,
+        retry_after: Optional[int] = None,
+        all_keys_exhausted: bool = False,
+        model_not_found: bool = False,
+    ):
         super().__init__(message)
         self.is_rate_limit = is_rate_limit
         self.retry_after = retry_after  # seconds
+        self.all_keys_exhausted = all_keys_exhausted
+        self.model_not_found = model_not_found
 
 
 class ParsingError(Exception):
@@ -36,135 +72,129 @@ class ParsingError(Exception):
 class GeminiService:
     """Service for interacting with Google Gemini AI"""
     
-    def __init__(self):
+    def __init__(self, api_key: Optional[str] = None):
         settings = get_settings()
-        api_key = settings.gemini_api_key
+        if not api_key:
+            api_key = get_effective_gemini_api_key(settings)
         
         if not api_key:
-            logger.error("GEMINI_API_KEY not found in environment variables")
-            raise ValueError("GEMINI_API_KEY not found in environment variables")
+            logger.error("Gemini API key not configured (.env or AI settings)")
+            raise ValueError(
+                "Gemini API ключ не е настроен. Добавете GEMINI_API_KEY в .env "
+                "или нов ключ в AI настройки."
+            )
         
         try:
             genai.configure(api_key=api_key)
-            
-            # If model is specified in settings, use it directly
-            if settings.gemini_model:
-                logger.info(f"Using specified model from config: {settings.gemini_model}")
-                try:
-                    self.model = genai.GenerativeModel(settings.gemini_model)
-                    logger.info(f"Successfully initialized model: {settings.gemini_model}")
-                    self.model_name = settings.gemini_model
-                except Exception as e:
-                    logger.error(f"Failed to initialize specified model {settings.gemini_model}: {e}")
-                    raise GeminiAPIError(f"Failed to initialize specified model {settings.gemini_model}: {e}")
-            else:
-                # Auto-detect model
-                # First, check which models are available via API
-                logger.info("Checking available Gemini models...")
-                working_model = None
-                try:
-                    available_models = genai.list_models()
-                    model_names_list = [model.name for model in available_models 
-                                      if 'generateContent' in model.supported_generation_methods]
-                    logger.debug(f"Found {len(model_names_list)} available models")
-                    
-                    # Prefer models with "flash" or "1.5" in the name for speed
-                    # Try to find a preferred model that's available and test it
-                    preferred_models = [
-                        'gemini-1.5-flash',
-                        'gemini-1.5-flash-latest', 
-                        'gemini-1.5-pro',
-                        'gemini-pro',
-                        'gemini-flash-001',
-                        'gemini-flash'
-                    ]
-                    
-                    # Try each preferred model by testing if we can create it
-                    for preferred in preferred_models:
-                        # Check if model exists in the list (case insensitive, partial match)
-                        matching_models = [name for name in model_names_list if preferred.lower() in name.lower()]
-                        if matching_models:
-                            # Try the first matching model
-                            test_model_name = matching_models[0]
-                            # Extract short name for GenerativeModel (it should work with or without models/ prefix)
-                            short_test_name = test_model_name.replace('models/', '') if 'models/' in test_model_name else test_model_name
-                            try:
-                                logger.debug(f"Testing model: {short_test_name}...")
-                                test_model = genai.GenerativeModel(short_test_name)
-                                working_model = short_test_name
-                                logger.info(f"Initialized model: {short_test_name}")
-                                break
-                            except Exception as test_error:
-                                logger.debug(f"Model {short_test_name} failed: {test_error}")
-                                continue
-                    
-                    # If no preferred found, try first available
-                    if not working_model and model_names_list:
-                        first_model = model_names_list[0]
-                        short_first_name = first_model.replace('models/', '') if 'models/' in first_model else first_model
-                        try:
-                            logger.debug(f"Trying first available model: {short_first_name}...")
-                            test_model = genai.GenerativeModel(short_first_name)
-                            working_model = short_first_name
-                            logger.info(f"Using first available model: {short_first_name}")
-                        except Exception as test_error:
-                            logger.warning(f"First model {short_first_name} failed: {test_error}")
-                    
-                except Exception as e:
-                    logger.warning(f"Could not list models via API: {e}")
-                    logger.info("Falling back to manual model list...")
-                    working_model = None
-            
-            # If API listing failed, try manual list
-            if not working_model:
-                model_names = [
-                    'gemini-1.5-flash',
-                    'gemini-1.5-flash-latest',
-                    'gemini-flash',
-                    'gemini-1.5-pro',
-                    'gemini-pro',
-                    'gemini-flash-001'
-                ]
-                
-                self.model = None
-                last_error = None
-                
-                for model_name in model_names:
-                    try:
-                        logger.debug(f"Trying to initialize model: {model_name}")
-                        self.model = genai.GenerativeModel(model_name)
-                        logger.info(f"Initialized model: {model_name}")
-                        working_model = model_name
-                        break
-                    except Exception as e:
-                        last_error = e
-                        logger.debug(f"Failed to initialize {model_name}: {e}")
-                        continue
-                
-                if self.model is None:
-                    error_msg = f"Failed to initialize any Gemini model. Last error: {last_error}"
-                    logger.error(error_msg)
-                    raise GeminiAPIError(error_msg)
-                else:
-                    self.model_name = working_model
-            else:
-                logger.info(f"Using model from API list: {working_model}")
-                self.model = genai.GenerativeModel(working_model)
-                self.model_name = working_model
-                
+            self.settings = settings
+            self.max_retries = 2
+            self.retry_delay = 2
+            self._max_output_tokens, self._temperature = self._read_generation_params()
+            model_name = self._resolve_working_model(settings.gemini_model)
+            self.model_name = model_name
+            self.model = self._build_generative_model(model_name)
+            logger.info(
+                "Gemini ready: model=%s, max_output_tokens=%s",
+                model_name,
+                self._max_output_tokens,
+            )
         except GeminiAPIError:
             raise
         except Exception as e:
             logger.error(f"Failed to initialize Gemini: {e}")
             raise GeminiAPIError(f"Failed to initialize Gemini: {e}")
-        
-        # Store settings for later use
-        self.settings = settings
-        
-        # Configuration
-        self.max_retries = 3
-        self.retry_delay = 2  # seconds
     
+    def _read_generation_params(self) -> tuple:
+        max_tokens = 1200
+        temperature = 0.7
+        if CONFIG_FILE_PATH.exists():
+            try:
+                with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
+                    ai = (json.load(f).get("ai_settings") or {})
+                max_tokens = int(ai.get("max_output_tokens", max_tokens))
+                temperature = float(ai.get("temperature", temperature))
+            except Exception as e:
+                logger.debug("Using default generation params: %s", e)
+        return min(max(max_tokens, 400), 2048), max(0.0, min(temperature, 1.0))
+
+    def _build_generative_model(self, model_name: str):
+        return genai.GenerativeModel(
+            model_name,
+            generation_config={
+                "max_output_tokens": self._max_output_tokens,
+                "temperature": self._temperature,
+            },
+        )
+
+    def _resolve_working_model(self, configured: Optional[str] = None) -> str:
+        """Pick first model that supports generateContent (API list or preferred fallbacks)."""
+        preferred: List[str] = []
+        if configured and configured.strip():
+            preferred.append(configured.strip())
+        for name in PREFERRED_GEMINI_MODELS:
+            if name not in preferred:
+                preferred.append(name)
+
+        available_short: List[str] = []
+        try:
+            for model in genai.list_models():
+                methods = getattr(model, "supported_generation_methods", []) or []
+                if "generateContent" not in methods:
+                    continue
+                short = model.name.replace("models/", "") if model.name else ""
+                if short:
+                    available_short.append(short)
+            logger.info("Gemini API reports %d generateContent models", len(available_short))
+        except Exception as e:
+            logger.warning("Could not list Gemini models: %s — using preferred defaults", e)
+            return preferred[0]
+
+        if not available_short:
+            return preferred[0]
+
+        for candidate in preferred:
+            if candidate in available_short:
+                logger.info("Using configured/preferred Gemini model: %s", candidate)
+                return candidate
+            for api_name in available_short:
+                if candidate.lower() in api_name.lower():
+                    logger.info("Using matched Gemini model: %s (wanted %s)", api_name, candidate)
+                    return api_name
+
+        for api_name in available_short:
+            if "flash" in api_name.lower() and "2." in api_name:
+                logger.info("Using first available flash model: %s", api_name)
+                return api_name
+
+        logger.info("Using first available Gemini model: %s", available_short[0])
+        return available_short[0]
+
+    @staticmethod
+    def _is_model_not_found_error(exc: Exception) -> bool:
+        name = type(exc).__name__.lower()
+        msg = str(exc).lower()
+        return (
+            "notfound" in name
+            or "404" in msg
+            or "is not found" in msg
+            or "not supported for generatecontent" in msg
+        )
+
+    @staticmethod
+    def _is_daily_quota_exhausted(error_details: str) -> bool:
+        """Only true for daily free-tier limits — not per-minute bursts."""
+        d = error_details.replace("_", " ").lower()
+        return (
+            "perday" in d.replace(" ", "")
+            or "per day" in d
+            or "generaterequestsperday" in d.replace(" ", "")
+        )
+
+    @staticmethod
+    def _is_per_minute_quota(error_details: str) -> bool:
+        d = error_details.replace("_", " ").lower()
+        return "perminute" in d.replace(" ", "") or "per minute" in d
+
     def generate_analysis(
         self, 
         test_data: Dict[str, Any]
@@ -201,76 +231,37 @@ class GeminiService:
         logger.debug(f"Test data: students={total_students}, avg={avg_points}/{max_points}")
         logger.debug(f"Student details available: {len(students)} students, {len(results)} results")
         
-        # Build prompt with detailed data
-        prompt = self._build_prompt(
-            class_name, subject, total_students, 
-            avg_points, avg_grade, min_points, max_points,
-            students, results, test_data
-        )
-        
-        # Call API with retry logic
-        ai_text = self._call_gemini_with_retry(prompt)
-        
+        prompt = self._build_prompt_from_test_data(test_data)
+        ai_text = self._call_gemini_with_model_fallback(prompt)
         logger.info(f"Received AI response: {len(ai_text)} characters")
-        
-        # Parse response with comprehensive error handling
-        try:
-            sections = self._parse_ai_response(ai_text)
-        except (IndexError, KeyError, AttributeError) as e:
-            logger.error(f"{type(e).__name__} parsing AI response: {e}")
-            import traceback
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-            # Use emergency fallback
-            logger.warning(f"Using emergency fallback due to {type(e).__name__}")
-            sections = {
-                'lowest_results_analysis': 'Анализ на най-ниските резултати.',
-                'highest_results_analysis': 'Анализ на най-високите резултати.',
-                'gaps_analysis': 'Анализ на пропуските.',
-                'results_analysis': 'Общ анализ на резултатите.',
-                'improvement_measures': 'Мерки за подобрение.'
-            }
-        except Exception as e:
-            logger.error(f"Error parsing AI response: {type(e).__name__}: {e}")
-            import traceback
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-            # Use emergency fallback
-            logger.warning("Using emergency fallback due to parsing error")
-            sections = {
-                'lowest_results_analysis': 'Анализ на най-ниските резултати.',
-                'highest_results_analysis': 'Анализ на най-високите резултати.',
-                'gaps_analysis': 'Анализ на пропуските.',
-                'results_analysis': 'Общ анализ на резултатите.',
-                'improvement_measures': 'Мерки за подобрение.'
-            }
-        
-        # Validate sections (but don't fail if validation fails, just use defaults)
-        if not self._validate_sections(sections):
-            logger.warning("Some sections are missing or empty, but proceeding with available content")
-            logger.debug(f"Parsed sections: {list(sections.keys())}")
-            logger.debug(f"Section lengths: {[(k, len(v)) for k, v in sections.items()]}")
-            
-            # Ensure all sections exist with at least default text
-            required_sections = [
-                'lowest_results_analysis',
-                'highest_results_analysis',
-                'gaps_analysis',
-                'results_analysis',
-                'improvement_measures'
-            ]
-            for section_key in required_sections:
-                if section_key not in sections or not sections[section_key] or len(sections[section_key]) < 10:
-                    default_text = {
-                        'lowest_results_analysis': 'Анализ на най-ниските резултати.',
-                        'highest_results_analysis': 'Анализ на най-високите резултати.',
-                        'gaps_analysis': 'Анализ на пропуските.',
-                        'results_analysis': 'Общ анализ на резултатите.',
-                        'improvement_measures': 'Мерки за подобрение.'
-                    }.get(section_key, 'Анализ.')
-                    sections[section_key] = default_text
-                    logger.warning(f"Using default text for missing section: {section_key}")
-        
-        logger.info("Successfully generated and parsed AI analysis")
-        return sections
+        return parse_and_validate_analysis(ai_text)
+
+    def edit_analysis_text(self, draft_text: str) -> str:
+        """
+        Stage 2: polish Groq draft (short prompt, max 800 output tokens).
+        """
+        if not draft_text or not draft_text.strip():
+            raise GeminiAPIError("Празен текст за редакция от Gemini")
+        prompt = GEMINI_EDIT_PROMPT_PREFIX + draft_text.strip()
+        logger.info("Gemini: editing Groq draft (%d chars in)", len(draft_text))
+        return self._call_gemini_with_model_fallback(
+            prompt,
+            max_output_tokens=GEMINI_EDIT_MAX_OUTPUT_TOKENS,
+        )
+
+    def _build_prompt_from_test_data(self, test_data: Dict[str, Any]) -> str:
+        return self._build_prompt(
+            test_data.get("class_name", "Unknown"),
+            test_data.get("subject", "Unknown"),
+            test_data.get("total_students", 0),
+            test_data.get("avg_points", 0),
+            test_data.get("avg_grade", 0),
+            test_data.get("min_points", 0),
+            test_data.get("max_points", 100),
+            test_data.get("students", []),
+            test_data.get("results", []),
+            test_data,
+        )
     
     def _build_prompt(
         self,
@@ -417,8 +408,8 @@ class GeminiService:
                 
                 # Sort students by points (descending) to show best and worst first
                 students_with_results = []
-                # Limit to first 15 for prompt size - safely handle if students list is shorter
-                max_students = min(len(students), 15) if students else 0
+                # Compact prompt: only first 10 students for matching, show top/bottom 3 in output
+                max_students = min(len(students), 10) if students else 0
                 for student in students[:max_students]:
                     student_id = student.get("id") or student.get("student_id")
                     student_name = student.get("name", "Unknown")
@@ -475,22 +466,20 @@ class GeminiService:
                 # Sort by points (descending)
                 students_with_results.sort(key=lambda x: x["points"], reverse=True)
                 
-                # Show all students (up to 15)
-                for s in students_with_results[:15]:
+                # Top 3 + bottom 3 only (saves input tokens)
+                highlight = []
+                if students_with_results:
+                    highlight = students_with_results[:3]
+                    if len(students_with_results) > 3:
+                        for s in students_with_results[-3:]:
+                            if s not in highlight:
+                                highlight.append(s)
+                for s in highlight:
                     try:
-                        student_details += f"- {s.get('name', 'Unknown')} ({s.get('gender', '')}): {s.get('points', 0)}т."
-                        if s.get('percentage'):
-                            student_details += f" ({s['percentage']}%)"
-                        student_details += f", Оценка: {s.get('grade', 0)}/6.00"
-                        if s.get('correct'):
-                            correct_list = s['correct'][:8] if isinstance(s['correct'], list) else []
-                            if correct_list:
-                                student_details += f", Правилни въпроси: {', '.join(map(str, correct_list))}"
-                        if s.get('wrong'):
-                            wrong_list = s['wrong'][:8] if isinstance(s['wrong'], list) else []
-                            if wrong_list:
-                                student_details += f", Грешни въпроси: {', '.join(map(str, wrong_list))}"
-                        student_details += "\n"
+                        student_details += (
+                            f"- {s.get('name', 'Unknown')} ({s.get('gender', '')}): "
+                            f"{s.get('points', 0)}т., оценка {s.get('grade', 0)}\n"
+                        )
                     except (KeyError, TypeError, IndexError) as e:
                         logger.warning(f"Error formatting student details: {e}")
                         continue
@@ -531,7 +520,7 @@ class GeminiService:
 - Резултати: Минимум {min_points}т., Максимум {max_points}т., Средно {avg_points}т.
 - Средна оценка: {avg_grade}/6.00{grade_dist_text}{statistics_text}{student_details}{question_analysis}
 
-Генерирай 5 ОТДЕЛНИ анализа (всеки до 150 думи):
+Генерирай 5 ОТДЕЛНИ кратки анализа (всеки до 80–100 думи, общо компактно):
 
 1. LOWEST_RESULTS: Анализ на най-ниските резултати - защо учениците имат затруднения, 
    конкретни теми с проблеми, възможни причини.
@@ -572,6 +561,97 @@ IMPROVEMENT_MEASURES:
 [текст тук]
 """
         
+    @staticmethod
+    def _exception_is_invalid_argument(exc: Exception) -> bool:
+        name = type(exc).__name__
+        msg = str(exc).lower()
+        return "invalidargument" in name.lower() or "invalid argument" in msg
+
+    @staticmethod
+    def _exception_is_invalid_api_key(exc: Exception) -> bool:
+        msg = str(exc).lower()
+        return (
+            "api key not valid" in msg
+            or "api_key_invalid" in msg
+            or "invalid api key" in msg
+            or ("api key" in msg and "invalid" in msg)
+        )
+
+    def _get_fallback_model_names(self) -> List[str]:
+        ordered: List[str] = []
+        current = getattr(self, "model_name", None)
+        if current:
+            ordered.append(current)
+        for name in PREFERRED_GEMINI_MODELS:
+            if name not in ordered:
+                ordered.append(name)
+        return ordered[:MAX_MODEL_FALLBACK_ATTEMPTS]
+
+    def _call_gemini_with_model_fallback(
+        self,
+        prompt: str,
+        max_output_tokens: Optional[int] = None,
+    ) -> str:
+        """Try alternate Gemini models when the active one returns InvalidArgument."""
+        saved_tokens = self._max_output_tokens
+        saved_model_name = self.model_name
+        if max_output_tokens is not None:
+            self._max_output_tokens = max_output_tokens
+            self.model = self._build_generative_model(self.model_name)
+        last_error: Optional[GeminiAPIError] = None
+        try:
+            for model_name in self._get_fallback_model_names():
+                try:
+                    if model_name != getattr(self, "model_name", None):
+                        logger.info("Switching Gemini model to: %s", model_name)
+                        self.model = self._build_generative_model(model_name)
+                        self.model_name = model_name
+                    return self._call_gemini_with_retry(prompt)
+                except GeminiAPIError as e:
+                    last_error = e
+                    err_text = str(e).lower()
+                    if "невалиден gemini api ключ" in err_text or (
+                        "api key" in err_text and "invalid" in err_text
+                    ):
+                        raise
+                    if getattr(e, "model_not_found", False) or "is not found" in err_text:
+                        logger.warning(
+                            "Model %s not found, trying next model...",
+                            model_name,
+                        )
+                        continue
+                    if "invalidargument" in err_text or "invalid argument" in err_text:
+                        logger.warning(
+                            "Model %s returned InvalidArgument, trying next model...",
+                            model_name,
+                        )
+                        continue
+                    if e.is_rate_limit and not GeminiService._is_daily_quota_exhausted(
+                        err_text
+                    ):
+                        raise GeminiAPIError(
+                            "Временен лимит на Gemini (на минута). Изчакайте ~1 минута и опитайте отново.",
+                            is_rate_limit=True,
+                            retry_after=15,
+                        )
+                    if e.is_rate_limit:
+                        logger.warning(
+                            "Model %s hit daily quota, trying next model...",
+                            model_name,
+                        )
+                        continue
+                    raise
+            if last_error:
+                raise last_error
+            raise GeminiAPIError(
+                "Неуспешно генериране на AI анализ: няма работещ Gemini модел за този API ключ."
+            )
+        finally:
+            if max_output_tokens is not None:
+                self._max_output_tokens = saved_tokens
+                self.model_name = saved_model_name
+                self.model = self._build_generative_model(self.model_name)
+
     def _call_gemini_with_retry(self, prompt: str) -> str:
         """
         Call Gemini API with retry logic
@@ -629,36 +709,60 @@ IMPROVEMENT_MEASURES:
                 error_type = type(e).__name__
                 error_details = str(e)
                 logger.warning(f"Attempt {attempt} failed: {error_type}: {error_details}")
+
+                if self._is_model_not_found_error(e):
+                    raise GeminiAPIError(
+                        f"Моделът {getattr(self, 'model_name', '?')} не е наличен в Gemini API. "
+                        f"{error_details[:250]}",
+                        model_not_found=True,
+                    )
+
+                # InvalidArgument is not transient — do not retry the same model 3 times
+                if self._exception_is_invalid_argument(e):
+                    if self._exception_is_invalid_api_key(e):
+                        raise GeminiAPIError(
+                            "Невалиден Gemini API ключ. Проверете ключовете в AI настройки "
+                            f"или gemini_api_keys.local.json. ({error_details[:200]})",
+                            is_rate_limit=False,
+                        )
+                    raise GeminiAPIError(
+                        "Грешка при заявката към Gemini (InvalidArgument). "
+                        f"Модел: {getattr(self, 'model_name', 'unknown')}. "
+                        f"{error_details[:300]}",
+                    )
                 
                 # Check for ResourceExhausted (rate limit / quota exceeded)
                 if "ResourceExhausted" in error_type or "429" in error_details or "quota" in error_details.lower():
-                    # Extract retry delay if available
-                    retry_delay = self.retry_delay
-                    if "retry_delay" in error_details.lower() or "retry in" in error_details.lower():
-                        # Try to extract seconds from error message
-                        import re
-                        delay_match = re.search(r'retry.*?(\d+(?:\.\d+)?)\s*s', error_details, re.IGNORECASE)
-                        if delay_match:
-                            retry_delay = max(int(float(delay_match.group(1))), 5)  # At least 5 seconds
-                    
-                    # Create user-friendly error message
                     user_msg = "Квотата за Gemini API е изчерпана. "
                     if "free_tier" in error_details.lower():
                         user_msg += "Безплатният план е изчерпан. "
-                    user_msg += "Моля, проверете вашия план и билинг в Google AI Studio. "
-                    if retry_delay > self.retry_delay:
-                        user_msg += f"Опитайте отново след {retry_delay} секунди."
-                    
-                    # If not last attempt, wait longer for rate limits
-                    if attempt < self.max_retries:
-                        logger.info(f"Rate limit detected. Waiting {retry_delay} seconds before retry...")
-                        time.sleep(retry_delay)
-                        continue
-                    else:
-                        # All retries failed due to rate limit
-                        error_msg = user_msg
-                        logger.error(f"Rate limit/quota exceeded after {self.max_retries} attempts")
-                        raise GeminiAPIError(error_msg, is_rate_limit=True, retry_after=retry_delay)
+                    user_msg += "Опитайте отново утре или с друг API ключ."
+
+                    if self._is_daily_quota_exhausted(error_details):
+                        logger.warning(
+                            "Daily quota for model %s — try next model or key",
+                            getattr(self, "model_name", "?"),
+                        )
+                        raise GeminiAPIError(user_msg, is_rate_limit=True)
+
+                    if self._is_per_minute_quota(error_details):
+                        retry_delay = self.retry_delay
+                        delay_match = re.search(
+                            r"retry.*?(\d+(?:\.\d+)?)\s*s", error_details, re.IGNORECASE
+                        )
+                        if delay_match:
+                            retry_delay = min(int(float(delay_match.group(1))), 15)
+                        if attempt < self.max_retries:
+                            logger.info("Per-minute limit — retry in %ss", retry_delay)
+                            time.sleep(retry_delay)
+                            continue
+                        raise GeminiAPIError(
+                            "Временен лимит на Gemini (на минута). Изчакайте ~1 минута и опитайте отново.",
+                            is_rate_limit=True,
+                            retry_after=retry_delay,
+                        )
+
+                    raise GeminiAPIError(user_msg, is_rate_limit=True)
                 
                 # Log full traceback for debugging
                 import traceback
@@ -963,16 +1067,69 @@ IMPROVEMENT_MEASURES:
 
 # Create singleton instance
 _gemini_service: Optional[GeminiService] = None
+_gemini_service_key: Optional[str] = None
 
-def get_gemini_service() -> GeminiService:
+def get_gemini_service(api_key: Optional[str] = None) -> GeminiService:
     """
     Get or create Gemini service instance (singleton pattern)
     
     Returns:
         GeminiService instance
     """
-    global _gemini_service
-    if _gemini_service is None:
-        logger.info("Creating new Gemini service instance")
-        _gemini_service = GeminiService()
+    global _gemini_service, _gemini_service_key
+    if api_key is None:
+        api_key = get_effective_gemini_api_key(get_settings())
+    if _gemini_service is None or _gemini_service_key != api_key:
+        logger.info(
+            "Creating Gemini service (key hint: %s)",
+            api_key[-4:] if api_key and len(api_key) >= 4 else "????",
+        )
+        _gemini_service = GeminiService(api_key=api_key)
+        _gemini_service_key = api_key
     return _gemini_service
+
+
+def reset_gemini_service() -> None:
+    """Drop cached Gemini client so the next call uses the latest API key."""
+    global _gemini_service, _gemini_service_key
+    _gemini_service = None
+    _gemini_service_key = None
+
+
+def build_analysis_prompt(test_data: Dict[str, Any]) -> str:
+    """Full Bulgarian analysis prompt (shared by Groq stage 1 and Gemini-only fallback)."""
+    helper = GeminiService.__new__(GeminiService)
+    return helper._build_prompt_from_test_data(test_data)
+
+
+def parse_and_validate_analysis(ai_text: str) -> Dict[str, str]:
+    """Parse raw LLM text into five required sections."""
+    helper = GeminiService.__new__(GeminiService)
+    try:
+        sections = helper._parse_ai_response(ai_text)
+    except (IndexError, KeyError, AttributeError) as e:
+        logger.error("%s parsing AI response: %s", type(e).__name__, e)
+        sections = _default_analysis_sections()
+    except Exception as e:
+        logger.error("Error parsing AI response: %s", e)
+        sections = _default_analysis_sections()
+
+    if not helper._validate_sections(sections):
+        for section_key in ANALYSIS_SECTION_KEYS:
+            if (
+                section_key not in sections
+                or not sections[section_key]
+                or len(sections[section_key]) < 10
+            ):
+                sections[section_key] = _default_analysis_sections()[section_key]
+    return sections
+
+
+def _default_analysis_sections() -> Dict[str, str]:
+    return {
+        "lowest_results_analysis": "Анализ на най-ниските резултати.",
+        "highest_results_analysis": "Анализ на най-високите резултати.",
+        "gaps_analysis": "Анализ на пропуските.",
+        "results_analysis": "Общ анализ на резултатите.",
+        "improvement_measures": "Мерки за подобрение.",
+    }

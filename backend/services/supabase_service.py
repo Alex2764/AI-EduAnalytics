@@ -52,6 +52,7 @@ class SupabaseService:
         
         try:
             self.client: Client = create_client(supabase_url, supabase_key)
+            self._admin_client: Optional[Client] = None
             self.results_table_name = results_table_name
             logger.info("Supabase client initialized successfully")
             if results_table_name:
@@ -148,6 +149,14 @@ class SupabaseService:
         logger.info(f"Fetching test analysis data: test_id={test_id}, class_id={class_id}")
         
         try:
+            statistics: Dict[str, Any] = {}
+            question_success_rates: Dict[str, Any] = {}
+            stats: Dict[str, Any] = {}
+            test: Dict[str, Any] = {}
+            class_info: Dict[str, Any] = {}
+            students: List[Dict[str, Any]] = []
+            results: List[Dict[str, Any]] = []
+
             # 0. Check cache first
             cached_analytics = self.get_analytics(test_id)
             
@@ -245,12 +254,16 @@ class SupabaseService:
                 # 6. Extract statistics and question success rates for caching
                 statistics_for_cache = {}
                 question_success_rates_for_cache = {}
+                question_success_rates = {}
+                statistics = {}
                 
                 for key, value in stats.items():
                     if key.startswith('q') and key.endswith('_success'):
                         question_success_rates_for_cache[key] = value
+                        question_success_rates[key] = value
                     else:
                         statistics_for_cache[key] = value
+                        statistics[key] = value
                 
                 # 7. Save to cache (async - don't block if it fails)
                 try:
@@ -529,6 +542,7 @@ class SupabaseService:
             "grade_scale": test_data.get("grade_scale"),
             "questions": test_data.get("questions") or [],
             "has_groups": has_groups,
+            "mode": test_data.get("mode") or "online",
         }
 
         logger.info(
@@ -580,6 +594,57 @@ class SupabaseService:
                 except Exception as rollback_error:
                     logger.error(f"Failed to roll back test {test_id}: {rollback_error}")
             error_msg = f"Failed to create test: {e}"
+            logger.error(error_msg)
+            raise SupabaseConnectionError(error_msg) from e
+
+    def _db_client(self) -> Client:
+        """Service role when configured (teacher submission reads); else anon."""
+        settings = get_settings()
+        if settings.supabase_service_role_key:
+            if self._admin_client is None:
+                self._admin_client = create_client(
+                    settings.supabase_url,
+                    settings.supabase_service_role_key,
+                )
+            return self._admin_client
+        return self.client
+
+    def list_pending_submissions(self, test_id: str) -> List[Dict[str, Any]]:
+        """Online test submissions awaiting teacher review."""
+        try:
+            response = (
+                self._db_client()
+                .table("submissions")
+                .select("*")
+                .eq("test_id", test_id)
+                .eq("status", "pending_review")
+                .order("created_at")
+                .execute()
+            )
+            return response.data or []
+        except Exception as e:
+            error_msg = f"Failed to load submissions: {e}"
+            logger.error(error_msg)
+            raise SupabaseConnectionError(error_msg) from e
+
+    def list_pending_submission_counts(self) -> Dict[str, int]:
+        """Count pending submissions per test_id."""
+        try:
+            response = (
+                self._db_client()
+                .table("submissions")
+                .select("test_id")
+                .eq("status", "pending_review")
+                .execute()
+            )
+            counts: Dict[str, int] = {}
+            for row in response.data or []:
+                tid = row.get("test_id")
+                if tid:
+                    counts[tid] = counts.get(tid, 0) + 1
+            return counts
+        except Exception as e:
+            error_msg = f"Failed to load submission counts: {e}"
             logger.error(error_msg)
             raise SupabaseConnectionError(error_msg) from e
 

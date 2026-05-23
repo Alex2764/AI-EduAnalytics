@@ -143,7 +143,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   (item.questions || []).some(
                     (q: Question) => Boolean(q.group1?.text && q.group2?.text)
                   ),
-                mode: item.mode === 'online' ? 'online' : 'offline',
+                mode: item.mode === 'offline' ? 'offline' : 'online',
                 questions: (item.questions || []).map((q: Question) => ({
                   ...q,
                   type: q.type ?? 'short_answer',
@@ -398,6 +398,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         grade_scale: testData.gradeScale,
         questions: testData.questions || [],
         has_groups: testData.hasGroups,
+        mode: 'online',
       });
 
       logger.info('Test created with tokens:', tokens);

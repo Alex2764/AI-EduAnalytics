@@ -27,28 +27,23 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedTestForReview, setSelectedTestForReview] = useState<Test | null>(null);
   const [pendingCounts, setPendingCounts] = useState<Record<string, number>>({});
+  const [submissionsLoadError, setSubmissionsLoadError] = useState('');
+
+  const refreshPendingCounts = async () => {
+    setSubmissionsLoadError('');
+    try {
+      const counts = await loadPendingSubmissionCounts();
+      setPendingCounts(counts);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Грешка при зареждане на предаванията.';
+      setSubmissionsLoadError(message);
+      logger.error('Error loading pending submission counts:', err);
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadCounts = async () => {
-      try {
-        const counts = await loadPendingSubmissionCounts();
-        if (!cancelled) {
-          setPendingCounts(counts);
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          logger.error('Error loading pending submission counts:', err);
-        }
-      }
-    };
-
-    loadCounts();
-
-    return () => {
-      cancelled = true;
-    };
+    refreshPendingCounts();
   }, [tests]);
 
   const handleDeleteTest = async (testId: string) => {
@@ -84,14 +79,6 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
     setShowReviewModal(true);
   };
 
-  const refreshPendingCounts = async () => {
-    try {
-      const counts = await loadPendingSubmissionCounts();
-      setPendingCounts(counts);
-    } catch (err: unknown) {
-      logger.error('Error refreshing pending submission counts:', err);
-    }
-  };
 
   const getTestStatistics = (test: Test) => {
     const testResults = results.filter(r => r.testId === test.id);
@@ -136,7 +123,7 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   const renderRow = (test: Test, index: number) => {
     const stats = getTestStatistics(test);
     const hasResults = stats.resultsCount > 0;
-    const isOnline = test.mode === 'online';
+    const isOnline = test.mode !== 'offline';
     const pendingCount = pendingCounts[test.id] ?? 0;
 
     return (
@@ -172,12 +159,14 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
               >
                 Скала
               </Button>
-              {isOnline && pendingCount > 0 && (
+              {isOnline && (
                 <Button
                   onClick={() => handleOpenReview(test)}
-                  className="text-xs py-2 px-3 btn-warning"
+                  className={`text-xs py-2 px-3 ${pendingCount > 0 ? 'btn-warning' : ''}`}
+                  variant={pendingCount > 0 ? undefined : 'secondary'}
+                  title="Преглед на предадени онлайн тестове"
                 >
-                  Чака преглед ({pendingCount})
+                  {pendingCount > 0 ? `Преглед (${pendingCount})` : 'Преглед'}
                 </Button>
               )}
               {isOnline && (
@@ -244,7 +233,25 @@ export const TestList: React.FC<TestListProps> = ({ onOpenResults, onShowAnalyti
   return (
     <>
       <div className="card">
-        <h3 className="text-lg font-semibold mb-4 text-center">Създадени тестове</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h3 className="text-lg font-semibold text-center flex-1">Създадени тестове</h3>
+          <Button
+            type="button"
+            variant="secondary"
+            className="text-xs py-1.5 px-3"
+            onClick={() => refreshPendingCounts()}
+          >
+            Обнови предавания
+          </Button>
+        </div>
+        {submissionsLoadError && (
+          <p
+            className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4"
+            role="alert"
+          >
+            {submissionsLoadError}
+          </p>
+        )}
         <Table
           columns={columns}
           data={sortedTests}

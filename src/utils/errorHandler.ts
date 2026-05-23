@@ -165,6 +165,35 @@ export function isBackendConnectionError(message: string): boolean {
   );
 }
 
+/** True when Gemini returned quota / rate-limit (HTTP 429). */
+export function isGeminiQuotaError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('квот') ||
+    lower.includes('429') ||
+    lower.includes('quota') ||
+    lower.includes('rate limit') ||
+    lower.includes('resource exhausted')
+  );
+}
+
+/** All configured Gemini keys exhausted for today. */
+export function isAllGeminiKeysExhausted(message: string): boolean {
+  const lower = message.toLowerCase();
+  if (lower.includes('временен лимит') || lower.includes('на минута')) {
+    return false;
+  }
+  return (
+    lower.includes('опитай пак, утре') ||
+    lower.includes('лимитът е изчерпан')
+  );
+}
+
+export function isGeminiMinuteLimit(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes('временен лимит') || lower.includes('на минута') || lower.includes('~1 минута');
+}
+
 /**
  * Handle async operation with standardized error handling
  * 

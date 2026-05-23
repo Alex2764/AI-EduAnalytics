@@ -18,11 +18,13 @@ from pathlib import Path
 
 # Import services
 from services.supabase_service import get_supabase_service, SupabaseConnectionError
-from services.gemini_service import get_gemini_service, GeminiAPIError, ParsingError
+from services.gemini_service import get_gemini_service, reset_gemini_service, GeminiAPIError, ParsingError
+from services.gemini_key_pool import reload_gemini_key_pool, ALL_KEYS_EXHAUSTED_MESSAGE
+from services.ai_analysis_pipeline import generate_test_analysis, AnalysisGenerationError
 from services.document_service import get_document_service, DocumentGenerationError
 
 # Import settings
-from config import get_settings
+from config import get_settings, get_effective_gemini_api_key, mask_gemini_api_key_hint
 
 # Setup logging
 logging.basicConfig(
@@ -394,6 +396,10 @@ class CreateTestRequest(BaseModel):
     questions: List[Dict[str, Any]] = Field(default_factory=list)
     has_groups: bool = Field(False, description="Whether test has two question groups")
     class_id: Optional[str] = Field(None, max_length=100)
+    mode: str = Field(
+        "online",
+        description="Test mode: online (student links) or offline",
+    )
 
 
 class TestTokenInfo(BaseModel):
@@ -417,11 +423,16 @@ class TemplateInfo(BaseModel):
 
 
 class AISettings(BaseModel):
-    """AI Settings configuration"""
+    """AI Settings configuration (API key is never returned in full)."""
     teacher_name: Optional[str] = Field(None, max_length=200, description="Teacher name")
     subject: Optional[str] = Field(None, max_length=200, description="Subject name")
     temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="AI temperature (0.0-2.0)")
-    max_output_tokens: Optional[int] = Field(2048, ge=1, le=8192, description="Maximum output tokens (1-8192)")
+    max_output_tokens: Optional[int] = Field(1200, ge=1, le=8192, description="Maximum output tokens (1-8192)")
+    gemini_api_key_set: bool = Field(False, description="Whether a Gemini API key is configured")
+    gemini_api_key_hint: Optional[str] = Field(
+        None,
+        description="Masked hint for the active key (last 4 chars)",
+    )
     
     @field_validator('teacher_name', 'subject')
     @classmethod
@@ -457,7 +468,75 @@ class AISettings(BaseModel):
         return v
 
 
+class AISettingsUpdate(BaseModel):
+    """Payload for updating AI settings (includes optional Gemini API key)."""
+    teacher_name: Optional[str] = Field(None, max_length=200)
+    subject: Optional[str] = Field(None, max_length=200)
+    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
+    max_output_tokens: Optional[int] = Field(None, ge=1, le=8192)
+    gemini_api_key: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="New Gemini API key (overrides .env when set)",
+    )
+
+    @field_validator('teacher_name', 'subject')
+    @classmethod
+    def validate_string_fields(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if len(v) == 0:
+            return None
+        if len(v) > 200:
+            raise ValueError("Field must be 200 characters or less")
+        return v
+
+    @field_validator('gemini_api_key')
+    @classmethod
+    def validate_gemini_api_key(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if len(v) == 0:
+            return None
+        if len(v) < 20:
+            raise ValueError("Gemini API ключът трябва да е поне 20 символа")
+        return v
+
+
+def _ai_settings_from_config(config: Dict[str, Any]) -> AISettings:
+    ai_settings = config.get("ai_settings", {})
+    effective_key = get_effective_gemini_api_key(get_settings())
+    return AISettings(
+        teacher_name=ai_settings.get("teacher_name"),
+        subject=ai_settings.get("subject"),
+        temperature=ai_settings.get("temperature", 0.7),
+        max_output_tokens=ai_settings.get("max_output_tokens", 2048),
+        gemini_api_key_set=bool(effective_key),
+        gemini_api_key_hint=mask_gemini_api_key_hint(effective_key),
+    )
+
+
 # Removed SetDefaultTemplateRequest - no longer using default template concept
+
+
+def _cached_ai_analysis_valid(ai_analysis: Any) -> bool:
+    """True if cached AI narrative has usable text (skip redundant Gemini calls)."""
+    if not ai_analysis or not isinstance(ai_analysis, dict):
+        return False
+    keys = (
+        "lowest_results_analysis",
+        "highest_results_analysis",
+        "gaps_analysis",
+        "results_analysis",
+        "improvement_measures",
+    )
+    for key in keys:
+        text = ai_analysis.get(key)
+        if isinstance(text, str) and len(text.strip()) >= 40:
+            return True
+    return False
 
 
 def _placeholder_ai_analysis_for_word() -> Dict[str, str]:
@@ -509,7 +588,7 @@ async def health_check():
     """
     try:
         # Check environment variables from settings
-        gemini_configured = bool(settings.gemini_api_key)
+        gemini_configured = bool(get_effective_gemini_api_key(settings))
         supabase_configured = bool(
             settings.supabase_url and 
             (settings.supabase_anon_key or settings.supabase_key)
@@ -570,6 +649,29 @@ async def create_test(request: CreateTestRequest):
         )
     except SupabaseConnectionError as e:
         logger.error(f"Create test failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/submissions/pending-counts")
+async def get_pending_submission_counts():
+    """Pending online submissions per test (for teacher Tests tab)."""
+    try:
+        supabase_service = get_supabase_service()
+        return supabase_service.list_pending_submission_counts()
+    except SupabaseConnectionError as e:
+        logger.error(f"Pending submission counts failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tests/{test_id}/submissions/pending")
+async def get_pending_submissions_for_test(test_id: str):
+    """Pending submissions for one test (teacher review modal)."""
+    try:
+        supabase_service = get_supabase_service()
+        rows = supabase_service.list_pending_submissions(test_id)
+        return {"submissions": rows}
+    except SupabaseConnectionError as e:
+        logger.error(f"Pending submissions failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -709,7 +811,14 @@ async def generate_report(request: GenerateReportRequest):
 
 
 @app.post("/api/analytics/{test_id}/generate-analysis")
-async def generate_analysis(test_id: str, class_id: str = Query(...)):
+async def generate_analysis(
+    test_id: str,
+    class_id: str = Query(...),
+    force: bool = Query(
+        False,
+        description="If true, call Gemini even when cached AI analysis exists",
+    ),
+):
     """
     Generate AI analysis for test results (without creating Word document)
     
@@ -752,6 +861,22 @@ async def generate_analysis(test_id: str, class_id: str = Query(...)):
         
         try:
             supabase_service = get_supabase_service()
+            if not force:
+                cached_row = supabase_service.get_analytics(test_id)
+                cached_ai = (cached_row or {}).get("ai_analysis")
+                if _cached_ai_analysis_valid(cached_ai):
+                    logger.info(
+                        "Returning cached AI analysis for test %s (no Gemini call)",
+                        test_id,
+                    )
+                    return {
+                        "success": True,
+                        "test_id": test_id,
+                        "analysis": cached_ai,
+                        "provider": "cache",
+                        "cached": True,
+                    }
+
             test_data = supabase_service.get_test_analysis_data(
                 test_id=test_id,
                 class_id=class_id
@@ -770,11 +895,10 @@ async def generate_analysis(test_id: str, class_id: str = Query(...)):
         # STEP 2: Generate AI analysis
         # ═══════════════════════════════════════════════════
         
-        logger.info("Step 2/2: Generating AI analysis with Google Gemini...")
+        logger.info("Step 2/2: AI analysis (Groq draft → Gemini edit, with fallbacks)...")
         
         try:
-            ai_service = get_gemini_service()
-            ai_analysis = ai_service.generate_analysis(test_data)
+            ai_analysis = generate_test_analysis(test_data)
             
             logger.info("AI analysis generated successfully")
             logger.debug(f"AI sections: {list(ai_analysis.keys())}")
@@ -827,16 +951,23 @@ async def generate_analysis(test_id: str, class_id: str = Query(...)):
                 "success": True,
                 "test_id": test_id,
                 "analysis": ai_analysis,
-                "provider": "Google Gemini"
+                "provider": "Groq+Gemini",
+                "cached": False,
             }
             
+        except AnalysisGenerationError as e:
+            logger.error(f"AI analysis pipeline error: {e}")
+            status_code = 429 if e.is_rate_limit else 500
+            detail = str(e)
+            raise HTTPException(status_code=status_code, detail=detail)
         except GeminiAPIError as e:
             logger.error(f"Gemini API error: {e}")
-            # Return 429 for rate limit errors, 500 for other API errors
             status_code = 429 if e.is_rate_limit else 500
+            detail = ALL_KEYS_EXHAUSTED_MESSAGE if e.all_keys_exhausted else str(e)
             raise HTTPException(
                 status_code=status_code,
-                detail=str(e)
+                detail=detail,
+                headers={"X-Gemini-All-Keys-Exhausted": "true"} if e.all_keys_exhausted else {},
             )
         except ParsingError as e:
             logger.error(f"AI parsing error: {e}")
@@ -1427,14 +1558,7 @@ async def get_ai_settings():
     """
     try:
         config = read_config()
-        ai_settings = config.get("ai_settings", {})
-        
-        return AISettings(
-            teacher_name=ai_settings.get("teacher_name"),
-            subject=ai_settings.get("subject"),
-            temperature=ai_settings.get("temperature", 0.7),
-            max_output_tokens=ai_settings.get("max_output_tokens", 2048)
-        )
+        return _ai_settings_from_config(config)
         
     except Exception as e:
         logger.error(f"Error getting AI settings: {e}")
@@ -1445,12 +1569,12 @@ async def get_ai_settings():
 
 
 @app.post("/api/ai-settings", response_model=AISettings)
-async def update_ai_settings(settings: AISettings):
+async def update_ai_settings(settings: AISettingsUpdate):
     """
     Update AI settings in config.json
     
     Args:
-        settings: AI settings to save (teacher_name, subject, temperature, max_output_tokens)
+        settings: AI settings to save (optional gemini_api_key replaces stored key)
     
     Returns:
         Updated AI settings
@@ -1472,18 +1596,27 @@ async def update_ai_settings(settings: AISettings):
             config["ai_settings"]["temperature"] = settings.temperature
         if settings.max_output_tokens is not None:
             config["ai_settings"]["max_output_tokens"] = settings.max_output_tokens
+        if settings.gemini_api_key is not None:
+            config["ai_settings"]["gemini_api_key"] = settings.gemini_api_key
+            keys = config["ai_settings"].get("gemini_api_keys")
+            if not isinstance(keys, list):
+                keys = []
+            if settings.gemini_api_key not in keys:
+                keys.append(settings.gemini_api_key)
+            config["ai_settings"]["gemini_api_keys"] = keys
+            reset_gemini_service()
+            reload_gemini_key_pool()
+            logger.info(
+                "Gemini API key updated via AI settings (hint: %s)",
+                mask_gemini_api_key_hint(settings.gemini_api_key),
+            )
         
         # Save updated config
         write_config(config)
         
         logger.info(f"AI settings updated: teacher_name={config['ai_settings'].get('teacher_name')}, subject={config['ai_settings'].get('subject')}")
         
-        return AISettings(
-            teacher_name=config["ai_settings"].get("teacher_name"),
-            subject=config["ai_settings"].get("subject"),
-            temperature=config["ai_settings"].get("temperature", 0.7),
-            max_output_tokens=config["ai_settings"].get("max_output_tokens", 2048)
-        )
+        return _ai_settings_from_config(config)
         
     except Exception as e:
         logger.error(f"Error updating AI settings: {e}")
@@ -1508,7 +1641,9 @@ async def startup_event():
     cleanup_protected = bool(settings.cleanup_api_key)
     
     logger.info(f"Environment: {settings.environment}")
-    logger.info(f"Gemini API Key: {'Set' if settings.gemini_api_key else 'Missing'}")
+    logger.info(
+        f"Gemini API Key: {'Set' if get_effective_gemini_api_key(settings) else 'Missing'}"
+    )
     logger.info(f"Supabase URL: {'Set' if settings.supabase_url else 'Missing'}")
     logger.info(f"Supabase Key: {'Set' if (settings.supabase_anon_key or settings.supabase_key) else 'Missing'}")
     if not cleanup_protected:

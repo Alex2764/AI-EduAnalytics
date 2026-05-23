@@ -17,6 +17,7 @@ dist-ssr
 # Environment variables (never commit real keys)
 .env
 .env.*
+backend/gemini_api_keys.local.json
 !.env.example
 .env.local
 *.env.bak
